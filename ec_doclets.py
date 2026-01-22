@@ -6,6 +6,7 @@ import sys
 import re
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional, Any, Union
+from easycoder import Handler, ECValue, ECDictionary, ECList
 
 class DocletManager():
     def __init__(self, doclets_dir: str = None, ollama_url: str = "http://localhost:11434"): # type: ignore
@@ -553,8 +554,6 @@ Return matching filenames:"""
 ###############################################################################
 ###############################################################################
 # The Doclets compiler and runtime handlers
-
-from easycoder import Handler, ECValue, ECList
 
 class Doclets(Handler):
 
