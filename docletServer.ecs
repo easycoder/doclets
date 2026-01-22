@@ -1,4 +1,4 @@
-!   docletHub.ecs
+!   docletServer.ecs
 
     script DocletServer
 
@@ -7,7 +7,6 @@
 
     topic ServerTopic
     topic SenderTopic
-    dictionary Payload
     dictionary Sender
     dictionary ReceivedMessage
     dictionary WaitForConfirmation
@@ -54,7 +53,7 @@
         else if Action is `query` go to DoQuery
         else if Action is `view` go to GetDoclet
         else if Action is `confirm` go to DoConfirm
-
+    end
     stop
 
 ! Get a list of the available doclet topics
@@ -68,6 +67,7 @@ GetTopics:
 
 ! Process a query
 DoQuery:
+    log `Query in ` cat Topic cat ` for ` cat ReceivedMessage
     get doclet ResultList from ReceivedMessage
     if the count of ResultList is 0 log `No results`
     else log `Sending ` cat ResultList

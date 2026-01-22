@@ -6,9 +6,6 @@ import sys
 import re
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional, Any, Union
-import requests
-
-from easycoder import ECDictionary
 
 class DocletManager():
     def __init__(self, doclets_dir: str = None, ollama_url: str = "http://localhost:11434"): # type: ignore
@@ -655,7 +652,7 @@ class Doclets(Handler):
             # Second pass: sort each topic group by filename, then combine in topic order
             sorted_results = []
             for topic in sorted(topics_dict.keys()):
-                topic_group = sorted(topics_dict[topic], key=lambda r: r.get('filename', ''))
+                topic_group = sorted(topics_dict[topic], key=lambda r: r.get('filename', ''), reverse=True)
                 sorted_results.extend(topic_group)
             results = sorted_results
             

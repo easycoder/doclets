@@ -222,7 +222,6 @@ SendQueryClick:
     put QueryInput into Query
     if LLMCheckbox put `LLM:` cat Query into Query
     put `query` into State
-!    send mqtt `path:` cat Topics to ServerTopic
     clear ResultsList
     put empty into ReceivedMessage
     send to ServerTopic
