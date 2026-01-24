@@ -6,4 +6,5 @@ rm doclets ec_doclets.py doclets.ecs
 wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets
 wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
 wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets.ecs
+chmod a+x doclets
 easycoder doclets.ecs
