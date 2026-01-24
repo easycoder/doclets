@@ -1,0 +1,8 @@
+#!/bin/sh
+
+cd ~/bin
+pip install -U easycoder
+rm ec_doclets.py doclets.ecs
+wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
+wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets.ecs
+easycoder doclets.ecs
