@@ -22,7 +22,7 @@
     label Label
     label TopicsLabel
     multiline QueryInput
-    multiline MDPanel
+    mdpanel MDPanel
     pushbutton ChooseTopicsButton
     pushbutton SendQueryButton
     pushbutton ExitButton
@@ -284,7 +284,7 @@ ProcessMessage:
     begin
         create MDMainPanel type QVBoxLayout
 
-        create MDPanel !cols 80 rows 25
+        create MDPanel
         set the text of MDPanel to MessageText
         add MDPanel to MDMainPanel
         create MDCloseButton text `Close`
