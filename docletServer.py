@@ -51,7 +51,7 @@ def main():
     
     # Start a new instance and wait for it to complete
     try:
-        result = subprocess.run(["easycoder", "docletServer.ecs"], check=True)
+        result = subprocess.run(["$HOME/easycoder", "docletServer.ecs"], check=True)
         # print("docletServer.ecs completed successfully")
     except:
         print("Terminated")
