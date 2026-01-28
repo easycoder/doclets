@@ -20,7 +20,7 @@ def main():
             text=True,
             check=True
         )
-        
+
         # Filter for docletServer.ecs (excluding grep itself and this script)
         pid = None
         for line in result.stdout.splitlines():
@@ -33,7 +33,7 @@ def main():
                         break
                     except ValueError:
                         continue
-        
+
         # If we found a PID, kill the process
         if pid:
             try:
@@ -44,17 +44,18 @@ def main():
             except PermissionError:
                 print(f"Permission denied to kill process {pid}")
                 sys.exit(1)
-    
+
     except subprocess.CalledProcessError as e:
         print(f"Error running ps command: {e}")
         sys.exit(1)
-    
+
     # Start a new instance and wait for it to complete
+    print("Start a new instance")
     try:
-        result = subprocess.run(["$HOME/easycoder", "docletServer.ecs"], check=True)
+        result = subprocess.run(["easycoder", "docletServer.ecs"], check=True)
         # print("docletServer.ecs completed successfully")
-    except:
-        print("Terminated")
+    except Exception as e:
+        print("Terminated: ,e")
 
 if __name__ == "__main__":
     main()
