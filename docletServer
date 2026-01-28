@@ -1,14 +1,14 @@
 #!/bin/sh
 
 # This file goes in your ~/bin folder, assuming it's on your $PATH.
-# Otherwise, change the next line.
 
-pip install -U easycoder
-cd ~$HOME/bin
-rm docletServer docletServer.ecs docletServer.py ec_doclets.py
-wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.py
+/usr/bin/pip install -U easycoder
+cd $HOME/bin
+rm ec_doclets.py docletServer.ecs docletServer.py
+wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer
 wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.py
 wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.ecs
 wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
-python3 docletServer.py
+/usr/bin/python3 docletServer.py
 $HOME/.local/bin/easycoder docletServer.ecs
+
