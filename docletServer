@@ -5,10 +5,10 @@
 /usr/bin/pip install -U easycoder
 cd $HOME/bin
 rm ec_doclets.py docletServer.ecs docletServer.py
-wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer
-wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.py
-wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.ecs
-wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.py
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.ecs
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
 /usr/bin/python3 docletServer.py
 $HOME/.local/bin/easycoder docletServer.ecs
 
