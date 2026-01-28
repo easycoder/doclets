@@ -58,6 +58,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up the UI
 
+    init graphics
     create MainPanel type QVBoxLayout
 
     create Layout type QHBoxLayout
