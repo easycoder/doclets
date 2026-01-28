@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-This script runs every day at 3am as a cron task.
-Restarts docletServer.ecs by killing any running instance and starting a new one.
+Kills the running instance of docletServer.ecs
 """
 
 import os
@@ -47,15 +46,15 @@ def main():
 
     except subprocess.CalledProcessError as e:
         print(f"Error running ps command: {e}")
-        sys.exit(1)
-
-    # Start a new instance and wait for it to complete
-    print("Start a new instance")
-    try:
-        result = subprocess.run(["$HOME/easycoder", "docletServer.ecs"], check=True)
-        # print("docletServer.ecs completed successfully")
-    except Exception as e:
-        print("Terminated: ,e")
+    #     sys.exit(1)
+    #
+    # # Start a new instance and wait for it to complete
+    # print("Start a new instance")
+    # try:
+    #     result = subprocess.run(["$HOME/easycoder", "docletServer.ecs"], check=True)
+    #     # print("docletServer.ecs completed successfully")
+    # except Exception as e:
+    #     print("Terminated: ,e")
 
 if __name__ == "__main__":
     main()

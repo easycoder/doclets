@@ -11,3 +11,4 @@ wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletS
 wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.ecs
 wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
 python3 docletServer.py
+$HOME/.local/bin/easycoder docletServer.ecs
