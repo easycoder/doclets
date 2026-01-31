@@ -136,7 +136,7 @@
         broker `test.mosquitto.org`
         port 1883
         subscribe MyTopic
-        action query requires sender and topics and message
+        action query requires sender and message
         action view requires sender and message
     
     on mqtt message
@@ -149,7 +149,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Initialise things
     put `idle` into State
-
     wait 3
     
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -228,8 +227,7 @@ SendQueryClick:
     send to ServerTopic
         sender MyTopic
         action `query`
-        topics Topics
-        message Query
+        message Topics cat `|` cat Query
     go to WaitForReply
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -57,7 +57,7 @@ class DocletManager():
         
         # Search across all configured directories
         for base_dir in self.doclets_dirs:
-            # print(f"  Searching in: {base_dir}")
+#            print(f"  Searching in: {base_dir}")
             year_count = 0
             # Look for year folders (e.g., 2026, 2025, etc.)
             for year_folder in base_dir.glob("[0-9][0-9][0-9][0-9]"):
@@ -186,6 +186,7 @@ class DocletManager():
     
     def _match_doclets(self, query: str, use_llm: bool = False) -> Tuple[List[Tuple[Path, str, str]], Optional[str], Dict[str, Any]]:
         """Return matching doclets, optional error code, and metadata."""
+#        print(f"_match_doclets called with query: '{query}', use_llm: {use_llm}")
         doclets = self.find_all_doclets()
         meta: Dict[str, Any] = {
             "doclet_count": len(doclets),
@@ -466,6 +467,7 @@ class Doclets(Handler):
     def __init__(self, compiler):
         super().__init__(compiler)
         self.spoke = None
+        print ("Doclets handler initialized")
 
     def getName(self):
         return 'doclets'
@@ -514,15 +516,16 @@ class Doclets(Handler):
         action = message.get('action', '')
         
         # Normalize incoming fields to UTF-8 strings
-        topics = message.get('topics', '')
-        if isinstance(topics, bytes):
-            topics = topics.decode('utf-8', errors='replace')
-
         query = message.get('message', '')
+#        print(query)
         if isinstance(query, bytes):
             query = query.decode('utf-8', errors='replace')
         
         if action == 'query':
+            p = query.find('|')
+            topics = query[:p] if p != -1 else ''
+            query = query[p+1:] if p != -1 else ''
+
             # Extract topics and set doclet directories
             if topics:
                 self.program.doclets_manager.set_doclets_dirs(topics)
