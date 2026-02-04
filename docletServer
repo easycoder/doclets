@@ -9,5 +9,6 @@ cd $HOME/bin
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.py
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.ecs
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
+chmod a+x docletServer
 /usr/bin/python3 docletServer.py
 $HOME/.local/bin/easycoder docletServer.ecs
