@@ -34,6 +34,7 @@
 
     topic MyTopic
     topic ServerTopic
+    variable MQTT_Token
     variable UUID
     variable Topics
     variable Query
@@ -121,6 +122,15 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up MQTT
 
+    ! Get the MQTT token
+    if file `~/.mqqt_token` does not exist
+    begin
+        print `No MQTT token could be found.`
+        exit
+    end
+    load MQTT_Token from `~/.mqqt_token`
+    print `Token is ` cat MQTT_Token
+
     put uuid into UUID
 
     init MyTopic
@@ -132,9 +142,10 @@
         qos 1
 
     mqtt
-        id UUID
-        broker `test.mosquitto.org`
-        port 1883
+        token MQTT_Token
+        id uuid
+        broker `mqtt.flespi.io`
+        port 8883
         subscribe MyTopic
         action query requires sender and message
         action view requires sender and message
@@ -273,7 +284,7 @@ ProcessMessage:
     end
     else if State is `query`
     begin
-        log MessageText
+!        log MessageText
         if MessageText is `[]` set DocletList to `["No results"]`
         set ResultsList to json MessageText
         log ResultsList
@@ -282,7 +293,6 @@ ProcessMessage:
     else if State is `content`
     begin
         create MDMainPanel type QVBoxLayout
-
         create MDPanel
         set the text of MDPanel to MessageText
         add MDPanel to MDMainPanel

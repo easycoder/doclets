@@ -11,6 +11,7 @@
     dictionary ReceivedMessage
     dictionary WaitForConfirmation
     list ResultList
+    variable MQTT_Token
     variable MyID
     variable SenderName
     variable Topic
@@ -25,15 +26,26 @@
     reset WaitForConfirmation
     clear ConfirmationRequested
 
+    ! Get the MQTT token
+    if file `~/.mqqt_token` does not exist
+    begin
+        print `No MQTT token could be found.`
+        exit
+    end
+    load MQTT_Token from `~/.mqqt_token`
+    print `Token is ` cat MQTT_Token
+
+    ! Set up MQTT
     put `a8:41:f4:d3:19:dd/request` into MyID
     init ServerTopic
         name MyID
         qos 1
 
     mqtt
+        token MQTT_Token
         id uuid
-        broker `test.mosquitto.org`
-        port 1883
+        broker `mqtt.flespi.io`
+        port 8883
         subscribe ServerTopic
 
     doclets init
@@ -70,7 +82,7 @@ DoQuery:
     log `Query in ` cat Topic cat ` for ` cat ReceivedMessage
     get doclet ResultList from ReceivedMessage
     if the count of ResultList is 0 log `No results`
-    else log `Sending ` cat ResultList
+    else log `Sending ` cat left 40 of ResultList
     put ResultList into MessageText
     gosub to SendReply
     stop
