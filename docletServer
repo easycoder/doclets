@@ -4,7 +4,7 @@
 
 /usr/bin/pip install -U easycoder
 cd $HOME/bin
-/usr/bin/rm ec_doclets.py docletServer.ecs docletServer.py
+/usr/bin/rm ec_doclets.py docletServer.ecs docletServer.py docletServer
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.py
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.ecs
