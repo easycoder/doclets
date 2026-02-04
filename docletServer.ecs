@@ -55,7 +55,6 @@
         put the mqtt message into ReceivedMessage
 !        log `Incoming: ` cat ReceivedMessage
         put entry `topic` of ReceivedMessage into Topic
-!        put entry `payload` of ReceivedMessage into Payload
         put entry `sender` of ReceivedMessage into Sender
         put entry `action` of ReceivedMessage into Action
         put entry `name` of Sender into SenderName
