@@ -11,4 +11,4 @@ cd $HOME/bin
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
 /usr/bin/chmod a+x docletServer
 /usr/bin/python3 docletServer.py
-$HOME/.local/bin/easycoder docletServer.ecs
+$HOME/.local/bin/easycoder docletServer.ecs > doclog 2>&1
