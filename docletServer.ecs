@@ -11,6 +11,7 @@
     dictionary ReceivedMessage
     dictionary WaitForConfirmation
     list ResultList
+    queue MessageQueue
     variable MQTT_Token
     variable MyID
     variable SenderName
@@ -50,20 +51,26 @@
 
     doclets init
     
-    on mqtt message
-    begin
-        put the mqtt message into ReceivedMessage
-!        log `Incoming: ` cat ReceivedMessage
-        put entry `topic` of ReceivedMessage into Topic
-        put entry `sender` of ReceivedMessage into Sender
-        put entry `action` of ReceivedMessage into Action
-        put entry `name` of Sender into SenderName
-        put entry `qos` of Sender into SenderQoS
+    on mqtt message append the mqtt message to MessageQueue
 
-        if Action is `topics` go to GetTopics
-        else if Action is `query` go to DoQuery
-        else if Action is `view` go to GetDoclet
-        else if Action is `confirm` go to DoConfirm
+    while true
+    begin
+        wait 50 ticks
+        if MessageQueue is not empty
+        begin
+            pop ReceivedMessage from MessageQueue
+!            log `Incoming: ` cat ReceivedMessage
+            put entry `sender` of ReceivedMessage into Sender
+            put entry `action` of ReceivedMessage into Action
+            put entry `message` of ReceivedMessage into MessageText
+            put entry `name` of Sender into SenderName
+            put entry `qos` of Sender into SenderQoS
+
+            if Action is `topics` gosub to GetTopics
+            else if Action is `query` gosub to DoQuery
+            else if Action is `view` gosub to GetDoclet
+            else if Action is `confirm` gosub to DoConfirm
+        end
     end
     stop
 
@@ -71,26 +78,22 @@
 GetTopics:
     put the doclet topics into Topics
     put Topics into MessageText
-    log `Available topics: ` cat MessageText
-!    set ConfirmationRequested
-    gosub to SendReply
-    stop
+!    log `Available topics: ` cat MessageText
+    go to SendReply
 
 ! Process a query
 DoQuery:
-    log `Query in ` cat Topic cat ` for ` cat ReceivedMessage
+!    log `Query: ` cat Message
     get doclet ResultList from ReceivedMessage
     if the count of ResultList is 0 log `No results`
     else log `Sending ` cat left 40 of ResultList
     put ResultList into MessageText
-    gosub to SendReply
-    stop
+    go to SendReply
 
 ! Get the content of a doclet
 GetDoclet:
     get doclet MessageText from ReceivedMessage
-    gosub to SendReply
-    stop
+    go to SendReply
 
 ! Process a confirmation
 DoConfirm:
@@ -100,7 +103,7 @@ DoConfirm:
         clear entry Sender of WaitForConfirmation
     end
     else log `No confirmation requested`
-    stop
+    return
 
 ! Send a reply message
 SendReply:

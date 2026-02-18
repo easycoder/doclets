@@ -235,6 +235,7 @@ SendQueryClick:
     put `query` into State
     clear ResultsList
     put empty into ReceivedMessage
+    log `Send ` cat Query
     send to ServerTopic
         sender MyTopic
         action `query`
