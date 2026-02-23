@@ -1,10 +1,10 @@
 #!/bin/sh
 
-cd ~/bin
-pip install -U easycoder
-rm doclets ec_doclets.py doclets.ecs
-wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets
-wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
-wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets.ecs
-chmod a+x doclets
-easycoder doclets.ecs
+cd $HOME/bin
+/usr/bin/pip install -U easycoder
+/usr/bin/rm doclets ec_doclets.py doclets.ecs
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/ec_doclets.py
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets.ecs
+/usr/bin/chmod a+x doclets
+$HOME/.local/bin/easycoder doclets.ecs
