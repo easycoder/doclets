@@ -15,7 +15,6 @@
     variable MQTT_Token
     variable MyID
     variable SenderName
-    variable Topic
     variable Topics
     variable Action
     variable SenderQoS
