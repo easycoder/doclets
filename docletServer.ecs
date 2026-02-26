@@ -28,7 +28,7 @@
     clear ConfirmationRequested
 
     ! Get the MQTT token
-    if file `~/.mqqtt_token` does not exist
+    if file `~/.mqtt_token` does not exist
     begin
         print `No MQTT token could be found.`
         exit
