@@ -15,4 +15,4 @@ cd $HOME/bin
 /usr/bin/echo 'Killing the running task'
 /usr/bin/python3 docletServer.py
 /usr/bin/echo 'Starting the doclet server'
-$HOME/.local/bin/easycoder docletServer.ecs > doclog 2>&1
+$HOME/.local/bin/easycoder docletServer.ecs # > doclog 2>&1
