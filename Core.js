@@ -2568,6 +2568,24 @@ const EasyCoder_Core = {
 				}
 				return null;
 			}
+			if (token === `item`) {
+				const item = compiler.getNextValue();
+				if (compiler.tokenIs(`of`)) {
+					if (compiler.nextIsSymbol()) {
+						const symbolRecord = compiler.getSymbolRecord();
+						compiler.next();
+						if (symbolRecord.keyword === `variable`) {
+							return {
+								domain: `core`,
+								type: `item`,
+								item,
+								symbol: symbolRecord.name
+							};
+						}
+					}
+				}
+				return null;
+			}
 			if (token === `property`) {
 				const property = compiler.getNextValue();
 				if (compiler.tokenIs(`of`)) {
@@ -3114,6 +3132,24 @@ const EasyCoder_Core = {
 					numeric: false,
 					content: typeof elementContent === `object` ?
 						JSON.stringify(elementContent) : elementContent
+				};
+			case `item`:
+				const item = program.getValue(value.item);
+				const itemRecord = program.getSymbolRecord(value.symbol);
+				var itemContent = ``;
+				try {
+					const rawContent = program.getValue(itemRecord.value[itemRecord.index]);
+					itemContent = JSON.parse(rawContent)[item];
+					// EasyCoder.writeToDebugConsole(itemContent)
+				} catch (err) {
+					program.runtimeError(program[program.pc].lino, `Can't parse JSON`);
+					return null;
+				}
+				return {
+					type: `constant`,
+					numeric: false,
+					content: typeof itemContent === `object` ?
+						JSON.stringify(itemContent) : itemContent
 				};
 			case `property`:
 				const property = program.getValue(value.property);

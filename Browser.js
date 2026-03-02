@@ -3269,6 +3269,13 @@ const EasyCoder_Browser = {
 						`Variable '${symbolRecord.name}' is not attached to a DOM element.`);
 					return null;
 				}
+				if (value.type === `input` && target.type === `checkbox`) {
+					return {
+						type: `boolean`,
+						numeric: false,
+						content: target.checked
+					};
+				}
 				return {
 					type: `constant`,
 					numeric: false,

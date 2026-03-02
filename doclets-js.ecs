@@ -42,12 +42,13 @@
     variable TopicsAvailable
     variable TopicsListed
     variable TopicsSelected
+    variable TopicsDisplayed
     variable DocletList
     variable H
 
     variable MainScreenWebson
 
-    debug step
+!    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up the UI
@@ -88,11 +89,12 @@
 
 Connected:
     ! Do the basic setup of the main window
-	gosub to SetupScreen
     put `idle` into State
     put empty into Topics
     put empty into ReceivedMessage
+    set TopicsAvailable to array
     set TopicsSelected to array
+	gosub to SetupScreen
 
     put `topics` into State
     send to ServerTopic
@@ -110,14 +112,14 @@ SetupScreen:
     clear Mobile
     if mobile
     begin
-    	print `Mobile browser detected`
+!    	print `Mobile browser detected`
         if portrait
         begin
-        	print `In portrait mode`
+!        	print `In portrait mode`
         	set Mobile
         end
     end
-    else print `PC browser detected`
+!    else print `PC browser detected`
 
 	create Body
     if Mobile
@@ -155,7 +157,17 @@ SetupScreen:
     on click Send go to SendQueryClick
     on click TopicsDialogOK go to TopicsDialogOKClick
 
+    get TopicsDisplayed from storage as `topic-list`
     gosub to UpdateTopicsLabel
+    split TopicsDisplayed on `,` into Topics
+    put 0 into N
+    while N is less than the elements of Topics
+    begin
+        index Topics to N
+        json add Topics to TopicsSelected
+        add 1 to N
+    end
+    print `Topics selected: ` cat TopicsSelected
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -168,20 +180,15 @@ AbandonShip:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the Choose button
 ChooseTopics:
-    if TopicsAvailable is empty
-    begin
-        set TopicsListed to array
-    end
-    else
-    begin
-        json split TopicsAvailable on `,` into TopicsListed
-    end
+    if TopicsAvailable is empty set TopicsListed to array
+    else json split TopicsAvailable on `,` into TopicsListed
 
+    ! Build the topic list
     put empty into TopicsMarkup
     put 0 into N
     while N is less than json count of TopicsListed
     begin
-        put element N of TopicsListed into Text
+        put item N of TopicsListed into Text
         put content of TopicItemTemplate into TopicItemMarkup
         replace `__SEQ__` with N in TopicItemMarkup
         replace `__VALUE__` with Text in TopicItemMarkup
@@ -191,23 +198,22 @@ ChooseTopics:
             into TopicsMarkup
         add 1 to N
     end
-
     set content of TopicsDialogList to TopicsMarkup
 
+    ! Set the checkboxes
     set the elements of TopicCheckbox to json count of TopicsListed
     put 0 into N
     while N is less than elements of TopicCheckbox
     begin
         index TopicCheckbox to N
         attach TopicCheckbox to `TopicCheckbox-` cat N
-        put element N of TopicsListed into Text
-        if json index of Text in TopicsAvailable is greater than -1
+        put item N of TopicsListed into Text
+        if json index of Text in TopicsSelected is not -1
         begin
             set attribute `checked` of TopicCheckbox
         end
         add 1 to N
     end
-    on change TopicCheckbox go to TopicCheckboxClick
 
     set style `display` of TopicsDialogMask to `flex`
     stop
@@ -231,15 +237,18 @@ TopicCheckboxClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the OK button in the Choose dialog
 TopicsDialogOKClick:
-    put empty into TopicsAvailable
+    put empty into TopicsDisplayed
+    set TopicsSelected to array
     put 0 into N
-    while N is less than json count of TopicsSelected
+    while N is less than elements of TopicCheckbox
     begin
-        put element N of TopicsSelected into Text
-        if Text is not empty
+        index TopicCheckbox to N
+        if TopicCheckbox
         begin
-            if TopicsAvailable is not empty put TopicsAvailable cat `,` into TopicsAvailable
-            put TopicsAvailable cat Text into TopicsAvailable
+            put item N of TopicsListed into Text
+            if TopicsDisplayed is not empty put TopicsDisplayed cat `,` into TopicsDisplayed
+            put TopicsDisplayed cat Text into TopicsDisplayed
+            json add Text to TopicsSelected
         end
         add 1 to N
     end
@@ -258,7 +267,7 @@ SendQueryClick:
     send to ServerTopic
         sender MyTopic
         action `query`
-        message Topics cat `|` cat Query
+        message TopicsDisplayed cat `|` cat Query
     go to WaitForReply
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -302,24 +311,32 @@ WaitForReply:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a received message
 ProcessMessage:
-    print ReceivedMessage
+!    print ReceivedMessage
     if State is `topics`
     begin
         if Action is `confirm` gosub to SendConfirmation
-        print `Topics available: ` cat ReceivedMessage
+!        print `Topics available: ` cat ReceivedMessage
+        put ReceivedMessage into storage as `topics-available`
         put ReceivedMessage into TopicsAvailable
-        gosub to UpdateTopicsLabel
     end
     else if State is `query`
     begin
         if ReceivedMessage is `[]` put `["No results"]` into MessageText
-        put MessageText into DocletList
+        put ReceivedMessage into DocletList
+        print DocletList
 
         put empty into ResultsMarkup
         put 0 into N
         while N is less than json count of DocletList
         begin
             put element N of DocletList into Text
+            put the position of `:` in Text into P
+            if P is greater than -1
+            begin
+                put left P of Text into Query
+                add 1 to P
+                put Query cat `<br>` cat from P of Text into Text
+            end
             put ResultsMarkup
                 cat `<button id='DocletButton-` cat N cat `' style='display:block;width:100%;text-align:left;margin-bottom:0.3em;'>`
                 cat Text
@@ -341,55 +358,16 @@ ProcessMessage:
     end
     else if State is `content`
     begin
-!        create MDMainPanel type QVBoxLayout
-!        create MDPanel
-!        set the text of MDPanel to MessageText
-!        add MDPanel to MDMainPanel
-!        create MDCloseButton text `Close`
-!        add MDCloseButton to MDMainPanel
-!        on click MDCloseButton
-        begin
-!            set property `content-width` of Config to the width of MDWindow
-!            set property `content-height` of Config to the height of MDWindow
-!            close MDWindow
-        end
-
-!        create MDWindow title ResultsList !size 700 500
-!        set the layout of MDWindow to MDMainPanel
-!        show MDWindow
-!        if Config has property `content-width`
-!            if Config has property `content-height`
-!            begin
-!                set the size of MDWindow to
-!                    property `content-width` of Config
-!                    property `content-height` of Config
-!                stop
-!            end
-!        adjust MDWindow
+        print ReceivedMessage
     end
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set the text of the topics label
 UpdateTopicsLabel:
-    put 0 into N
-    while N is less than json count of TopicsSelected
-    begin
-        put element N of TopicsSelected into Text
-        if Text is not empty
-        begin
-            if TopicsAvailable is not empty put TopicsAvailable cat `,` into TopicsAvailable
-            put TopicsAvailable cat Text into TopicsAvailable
-        end
-        add 1 to N
-    end
-    return
-
-    print TopicsSelected
-    put TopicsSelected into Text
-    replace `[` with empty in Text
-    replace `]` with empty in Text
-    replace `"` with empty in Text
-    if Text is empty set content of TopicList to `Topics: None`
-    else set content of TopicList to `Topics: ` cat Text
+    if TopicsDisplayed is empty set content of TopicList to `Topics: None`
+    else set content of TopicList to `Topics: ` cat TopicsDisplayed
+    put TopicsDisplayed into storage as `topic-list`
     return
 
 ! Send a confirmation message

@@ -13,7 +13,6 @@ const EasyCoder = {
 	elementId: 0,
 	attachWaitMs: 3000,
 	timingEnabled: false,
-	activityCount: 0,
 	startupTraceCache: null,
 
 	isStartupTraceEnabled: function () {
@@ -45,45 +44,6 @@ const EasyCoder = {
 		if (this.isStartupTraceEnabled()) {
 			this.writeToDebugConsole(message);
 		}
-	},
-
-	getActivityIndicatorElement: function () {
-		let indicator = document.getElementById(`easycoder-activity-indicator`);
-		if (indicator) {
-			return indicator;
-		}
-		if (!document.body) {
-			return null;
-		}
-		indicator = document.createElement(`div`);
-		indicator.id = `easycoder-activity-indicator`;
-		indicator.style.position = `fixed`;
-		indicator.style.right = `10px`;
-		indicator.style.bottom = `10px`;
-		indicator.style.zIndex = `2147483647`;
-		indicator.style.maxWidth = `60vw`;
-		indicator.style.padding = `6px 10px`;
-		indicator.style.fontFamily = `monospace`;
-		indicator.style.fontSize = `12px`;
-		indicator.style.background = `rgba(0, 0, 0, 0.8)`;
-		indicator.style.color = `#fff`;
-		indicator.style.borderRadius = `4px`;
-		indicator.style.whiteSpace = `nowrap`;
-		indicator.style.overflow = `hidden`;
-		indicator.style.textOverflow = `ellipsis`;
-		indicator.textContent = `EasyCoder activity: waiting...`;
-		document.body.appendChild(indicator);
-		return indicator;
-	},
-
-	updateActivityIndicator: function (message) {
-		const indicator = this.getActivityIndicatorElement();
-		if (!indicator) {
-			return;
-		}
-		this.activityCount += 1;
-		const time = new Date().toLocaleTimeString();
-		indicator.textContent = `EasyCoder #${this.activityCount} ${time}: ${message}`;
 	},
 
 	getDebugConsoleElement: function () {
@@ -119,10 +79,6 @@ const EasyCoder = {
 	writeToDebugConsole: function (message) {
 		const params = new URLSearchParams(window.location.search);
 		let usePageDebugConsole = params.get(`pageDebugConsole`) === `1`;
-		const showActivityIndicator = params.get(`vscodeDebugConsole`) === `1` || params.get(`pageDebugConsole`) === `1`;
-		if (showActivityIndicator) {
-			this.updateActivityIndicator(message);
-		}
 		if (!usePageDebugConsole) {
 			try {
 				const stored = window.localStorage ? window.localStorage.getItem(`easycoder.pageDebugConsole`) : null;

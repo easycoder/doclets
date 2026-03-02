@@ -2,6 +2,26 @@ const EasyCoder_JSON = {
 
 	name: `EasyCoder_JSON`,
 
+	normalizeComparable: (entry) => {
+		if (typeof entry !== `string`) {
+			return entry;
+		}
+		const trimmed = entry.trim();
+		if ((trimmed.startsWith(`"`) && trimmed.endsWith(`"`)) ||
+			(trimmed.startsWith(`'`) && trimmed.endsWith(`'`))) {
+			try {
+				return JSON.parse(trimmed.replace(/^'/, `"`).replace(/'$/, `"`));
+			} catch (err) {
+				return trimmed.substring(1, trimmed.length - 1);
+			}
+		}
+		return entry;
+	},
+
+	areComparableEqual: (left, right) => {
+		return EasyCoder_JSON.normalizeComparable(left) === EasyCoder_JSON.normalizeComparable(right);
+	},
+
 	Json: {
 
 		compile: (compiler) => {
@@ -376,11 +396,18 @@ const EasyCoder_JSON = {
 			case `split`:
 				content = program.getValue(command.item);
 				const on = program.getValue(command.on);
+				let splitItems;
+				try {
+					const parsed = JSON.parse(content);
+					splitItems = Array.isArray(parsed) ? parsed : content.split(on);
+				} catch (err) {
+					splitItems = content.split(on);
+				}
 				targetRecord = program.getSymbolRecord(command.target);
 				targetRecord.value[targetRecord.index] = {
 					type: `constant`,
 					numeric: false,
-					content: JSON.stringify(content.split(on))
+					content: JSON.stringify(splitItems)
 				};
 				break;
 			case `replace`:
@@ -518,8 +545,8 @@ const EasyCoder_JSON = {
 			case `index`:
 				const item = program.getValue(value.item);
 				const list = JSON.parse(program.getValue(value.list));
-				content = list.findIndex(function (value) {
-					return value === item;
+				content = list.findIndex(function (entry) {
+					return EasyCoder_JSON.areComparableEqual(entry, item);
 				});
 				return {
 					type: `constant`,
