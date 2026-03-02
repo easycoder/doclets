@@ -2,6 +2,125 @@ const EasyCoder_Browser = {
 
 	name: `EasyCoder_Browser`,
 
+	escapeHtml: (text) => {
+		return `${text}`
+			.replace(/&/g, `&amp;`)
+			.replace(/</g, `&lt;`)
+			.replace(/>/g, `&gt;`)
+			.replace(/"/g, `&quot;`)
+			.replace(/'/g, `&#39;`);
+	},
+
+	renderMarkdownToHtml: (markdown) => {
+		const source = `${markdown ?? ``}`.replace(/\r\n?/g, `\n`);
+		const parseInline = (text) => {
+			let html = EasyCoder_Browser.escapeHtml(text);
+			html = html.replace(/`([^`]+)`/g, `<code>$1</code>`);
+			html = html.replace(/\*\*([^*]+)\*\*/g, `<strong>$1</strong>`);
+			html = html.replace(/__([^_]+)__/g, `<strong>$1</strong>`);
+			html = html.replace(/(^|[^*])\*([^*]+)\*/g, `$1<em>$2</em>`);
+			html = html.replace(/(^|[^_])_([^_]+)_/g, `$1<em>$2</em>`);
+			html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>`);
+			return html;
+		};
+
+		const out = [];
+		let inCodeBlock = false;
+			let inBlockquote = false;
+		let listType = ``;
+		const closeList = () => {
+			if (listType) {
+				out.push(`</${listType}>`);
+				listType = ``;
+			}
+		};
+			const closeBlockquote = () => {
+				if (inBlockquote) {
+					closeList();
+					out.push(`</blockquote>`);
+					inBlockquote = false;
+				}
+			};
+
+		for (const rawLine of source.split(`\n`)) {
+			const line = rawLine;
+			if (line.trim().startsWith('```')) {
+					closeBlockquote();
+				closeList();
+				if (!inCodeBlock) {
+					out.push(`<pre><code>`);
+					inCodeBlock = true;
+				} else {
+					out.push(`</code></pre>`);
+					inCodeBlock = false;
+				}
+				continue;
+			}
+			if (inCodeBlock) {
+				out.push(`${EasyCoder_Browser.escapeHtml(line)}\n`);
+				continue;
+			}
+
+			if (line.trim() === ``) {
+					closeBlockquote();
+				closeList();
+				continue;
+			}
+
+				const quote = /^>\s?(.*)$/.exec(line);
+				if (quote) {
+					closeList();
+					if (!inBlockquote) {
+						out.push(`<blockquote>`);
+						inBlockquote = true;
+					}
+					out.push(`<p>${parseInline(quote[1])}</p>`);
+					continue;
+				}
+				closeBlockquote();
+
+			const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+			if (heading) {
+				closeList();
+				const level = heading[1].length;
+				out.push(`<h${level}>${parseInline(heading[2])}</h${level}>`);
+				continue;
+			}
+
+			const ulist = /^[-*]\s+(.*)$/.exec(line);
+			if (ulist) {
+				if (listType !== `ul`) {
+					closeList();
+					listType = `ul`;
+					out.push(`<ul>`);
+				}
+				out.push(`<li>${parseInline(ulist[1])}</li>`);
+				continue;
+			}
+
+			const olist = /^\d+\.\s+(.*)$/.exec(line);
+			if (olist) {
+				if (listType !== `ol`) {
+					closeList();
+					listType = `ol`;
+					out.push(`<ol>`);
+				}
+				out.push(`<li>${parseInline(olist[1])}</li>`);
+				continue;
+			}
+
+			closeList();
+			out.push(`<p>${parseInline(line)}</p>`);
+		}
+
+		closeList();
+			closeBlockquote();
+		if (inCodeBlock) {
+			out.push(`</code></pre>`);
+		}
+		return out.join(`\n`);
+	},
+
 	A: {
 
 		compile: (compiler) => {
@@ -632,8 +751,17 @@ const EasyCoder_Browser = {
 		run: (program) => {
 			const command = program[program.pc];
 			const symbol = program.getSymbolRecord(command.symbol);
-			const target = document.getElementById(symbol.value[symbol.index].content);
-			target.disabled = `true`;
+			let target = symbol.element[symbol.index];
+			if (!target) {
+				const symbolValue = symbol.value[symbol.index] || {};
+				const targetId = symbolValue.content || symbolValue.id;
+				target = targetId ? document.getElementById(targetId) : null;
+			}
+			if (!target) {
+				program.runtimeError(command.lino, `Variable '${symbol.name}' is not attached to a DOM element.`);
+				return 0;
+			}
+			target.disabled = true;
 			return command.pc + 1;
 		}
 	},
@@ -672,7 +800,16 @@ const EasyCoder_Browser = {
 		run: (program) => {
 			const command = program[program.pc];
 			const symbol = program.getSymbolRecord(command.symbol);
-			const target = document.getElementById(symbol.value[symbol.index].content);
+			let target = symbol.element[symbol.index];
+			if (!target) {
+				const symbolValue = symbol.value[symbol.index] || {};
+				const targetId = symbolValue.content || symbolValue.id;
+				target = targetId ? document.getElementById(targetId) : null;
+			}
+			if (!target) {
+				program.runtimeError(command.lino, `Variable '${symbol.name}' is not attached to a DOM element.`);
+				return 0;
+			}
 			target.disabled = false;
 			return command.pc + 1;
 		}
@@ -2341,7 +2478,11 @@ const EasyCoder_Browser = {
 					target.value = value;
 					break;
 				default:
-					target.innerHTML = value;
+					if (target && target.dataset && target.dataset.markdown === `1`) {
+						target.innerHTML = EasyCoder_Browser.renderMarkdownToHtml(value);
+					} else {
+						target.innerHTML = value;
+					}
 					break;
 				}
 				break;

@@ -13,10 +13,13 @@
     div TopicsDialogList
     div TopicItemTemplate
     div TopicItemTemplateRow
+    div DocletViewMask
+    div DocletViewContent
     div DocletListPanel
     button ChooseTopicsButton
-    button Send
+    button SendQueryButton
     button TopicsDialogOK
+    button DocletViewClose
     button DocletButton
     input QueryInput
     input TopicCheckbox
@@ -148,14 +151,22 @@ SetupScreen:
     attach TopicsDialogList to `TopicsDialogList`
     attach TopicItemTemplate to `TopicItemTemplate`
     attach TopicItemTemplateRow to `TopicItem-__SEQ__`
+    attach DocletViewMask to `DocletViewMask`
+    attach DocletViewContent to `DocletViewContent`
     attach DocletListPanel to `DocletListPanel`
     attach ChooseTopicsButton to `ChooseTopicsButton`
-    attach Send to `SendQueryButton`
+    attach SendQueryButton to `SendQueryButton`
     attach TopicsDialogOK to `TopicsDialogOKButton`
+    attach DocletViewClose to `DocletViewCloseButton`
 
     on click ChooseTopicsButton go to ChooseTopics
-    on click Send go to SendQueryClick
+    on click SendQueryButton go to SendQueryClick
     on click TopicsDialogOK go to TopicsDialogOKClick
+    on click DocletViewClose go to DocletViewCloseClick
+
+    enable QueryInput
+    disable ChooseTopicsButton
+    disable SendQueryButton
 
     get TopicsDisplayed from storage as `topic-list`
     gosub to UpdateTopicsLabel
@@ -180,6 +191,7 @@ AbandonShip:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the Choose button
 ChooseTopics:
+    enable QueryInput
     if TopicsAvailable is empty set TopicsListed to array
     else json split TopicsAvailable on `,` into TopicsListed
 
@@ -237,6 +249,7 @@ TopicCheckboxClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the OK button in the Choose dialog
 TopicsDialogOKClick:
+    enable QueryInput
     put empty into TopicsDisplayed
     set TopicsSelected to array
     put 0 into N
@@ -259,6 +272,7 @@ TopicsDialogOKClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the Send button
 SendQueryClick:
+    enable QueryInput
     put QueryInput into Query
     put `query` into State
     clear DocletListPanel
@@ -311,16 +325,19 @@ WaitForReply:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a received message
 ProcessMessage:
-!    print ReceivedMessage
     if State is `topics`
     begin
-        if Action is `confirm` gosub to SendConfirmation
+        if Action is `confirm` gosub to SendQueryButtonConfirmation
 !        print `Topics available: ` cat ReceivedMessage
         put ReceivedMessage into storage as `topics-available`
         put ReceivedMessage into TopicsAvailable
+        enable QueryInput
+        enable ChooseTopicsButton
+        enable SendQueryButton
     end
     else if State is `query`
     begin
+        enable QueryInput
         if ReceivedMessage is `[]` put `["No results"]` into MessageText
         put ReceivedMessage into DocletList
         print DocletList
@@ -358,8 +375,18 @@ ProcessMessage:
     end
     else if State is `content`
     begin
-        print ReceivedMessage
+        enable QueryInput
+        put ReceivedMessage into MessageText
+        set content of DocletViewContent to MessageText
+        set style `display` of DocletViewMask to `flex`
     end
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Close the doclet view popup
+DocletViewCloseClick:
+    enable QueryInput
+    set style `display` of DocletViewMask to `none`
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
