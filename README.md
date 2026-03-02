@@ -125,7 +125,7 @@ Now you can run the reader, on the same machine or on any other. If you're not o
 ```
 easycoder doclets.ecs
 ```
-The UI should start up and after a second or two the buttons will become enabled. Click the `Choose` buttons to select which of your topic you want to search, then type a keyword into the `Query` box and click `Send`. You'll get back a list of doclets, and clicking any one opens another window with the doclet pretty-printed.
+The UI should start up and after a second or two the buttons will become enabled. Click the `Choose` buttons to select which of your topics you want to search, then type a keyword into the `Query` box and click `Send`. You'll get back a list of doclets, and clicking any one opens another window with the doclet pretty-printed.
 
 ## Where this is heading
 
