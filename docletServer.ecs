@@ -75,7 +75,6 @@
             if Action is `topics` gosub to GetTopics
             else if Action is `query` gosub to DoQuery
             else if Action is `view` gosub to GetDoclet
-            else if Action is `confirm` gosub to DoConfirm
         end
     end
     stop
