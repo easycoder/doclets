@@ -288,7 +288,6 @@ ProcessMessage:
     put entry `action` of ReceivedMessage into Action
     if State is `topics`
     begin
-        if Action is `confirm` gosub to SendConfirmation
         put MessageText into TopicsAvailable
         log `Topics available: ` cat TopicsAvailable
         enable ChooseTopicsButton
@@ -331,10 +330,3 @@ ProcessMessage:
         adjust MDWindow
     end
     stop
-
-! Send a confirmation message
-SendConfirmation:
-    send to ServerTopic
-        sender MyTopic
-        action `confirm`
-    return

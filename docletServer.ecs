@@ -9,7 +9,6 @@
     topic SenderTopic
     dictionary Sender
     dictionary ReceivedMessage
-    dictionary WaitForConfirmation
     list ResultList
     queue MessageQueue
     variable MQTT_Token
@@ -21,8 +20,6 @@
     variable MessageText
     
 !    debug step
-
-    reset WaitForConfirmation
 
     ! Get the MQTT token
     if file `~/.mqtt_token` does not exist
