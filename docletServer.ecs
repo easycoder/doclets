@@ -42,6 +42,7 @@
         exit
     end
     load MyID from `~/.mqtt_userid`
+    put trim MyID into MyID
     print `User ID is ` cat MyID
 
     ! Set up MQTT
