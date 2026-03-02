@@ -1,0 +1,299 @@
+!   doclets.ecs
+
+    script Doclets
+
+!    debug compile
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Doclet query system
+
+    div Body
+    button Choose
+    button Send
+
+    topic MyTopic
+    topic ServerTopic
+    variable MyID
+    variable Topics
+    variable Query
+    variable Mobile
+    variable State
+    variable Action
+    variable MessageText
+    variable N
+    variable P
+    variable Config
+    variable ReceivedMessage
+    variable TopicsAvailable
+    variable DocletList
+    variable H
+
+    variable MainScreenWebson
+
+!    debug step
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set up the UI
+
+!    debug step
+
+!   Set up MQTT
+    put `Doclets-` cat random 999999 into MyID
+    print `MyID = ` cat MyID
+    
+    init ServerTopic
+        name `38:54:39:34:62:d7/request`
+        qos 1
+
+    init MyTopic
+        name MyID
+        qos 1
+
+    mqtt
+        token `kgDkpyDUubtAchcj9ts85QPJOwE1C2MKjNuoeb4nisd23pM33uTb5m7AGuMNhJMP`
+        id MyID
+        broker `mqtt.flespi.io`
+        port 443
+        subscribe MyTopic
+
+    on mqtt connect
+    begin
+        print `MQTT Connected`
+        go to Connected
+    end
+    
+    ! Handle incoming messages
+    on mqtt message
+    begin
+        put the mqtt message into ReceivedMessage
+    end
+    stop
+
+Connected:
+    ! Do the basic setup of the main window
+	gosub to SetupScreen
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set up the main screen
+SetupScreen:
+    print `Set up the screen...`
+
+    set the title to `Doclet reader`
+
+    clear Mobile
+    if mobile
+    begin
+    	print `Mobile browser detected`
+        if portrait
+        begin
+        	print `In portrait mode`
+        	set Mobile
+        end
+    end
+    else print `PC browser detected`
+
+	create Body
+    if Mobile
+    begin
+    	set style `width` of Body to `100%`
+    end
+    else
+    begin
+        put the height of the window into H
+        multiply H by 9 giving N
+        divide N by 16
+    	set style `width` of Body to N cat `px`
+        set style `margin` of Body to `0 auto`
+        set style `border` of Body to `1px solid lightgray`
+    end
+    set style `height` of Body to `calc(100vh - 1em)`
+
+!	Render the main screen layout
+    rest get MainScreenWebson from `doclets.json?v=` cat now
+    	or go to AbandonShip
+	render MainScreenWebson in Body
+
+    attach Choose to `ChooseTopicsButton`
+    attach Send to `SendQueryButton`
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Warn the user and abandon this run
+AbandonShip:
+	alert `An unrecoverable error has occurred.`
+    	cat newline cat `Please refresh this browser page to restart.`
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Initialise things
+    put `idle` into State
+    wait 3
+
+    stop
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Request the list of topics from the hub
+    put `topics` into State
+    send to ServerTopic
+        sender MyTopic
+        action `topics`
+    go to WaitForReply
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Here when the user clicks the Choose button
+ChooseTopics:
+!    create TopicsWindow title `Topics`
+!    create Panel1 type QVBoxLayout
+!    set the layout of TopicsWindow to Panel1
+!    create Panel2 type QVBoxLayout
+!    add Panel2 to Panel1
+!    set the elements of TopicCheckbox to the count of TopicsAvailable
+!    put TopicsLabel into Items
+!    split Items on `,`
+!    put 0 into N
+!    while N is less than the count of TopicsAvailable
+!    begin
+!        put item N of TopicsAvailable into Text
+!        index TopicCheckbox to N
+!        create TopicCheckbox text Text
+!        put 0 into M
+!        while M is less than the elements of Items
+!        begin
+!            index Items to M
+!            if Text is Items
+!            begin
+!                set the state of TopicCheckbox to true
+!                go to CT2
+!            end
+!            increment M
+!        end
+!    CT2:
+!        add TopicCheckbox to Panel2
+!        increment N
+!    end
+!    create OKButton text `OK`
+!    add OKButton to Panel1
+!    on click OKButton
+!    begin
+!        put empty into Topics
+!        put 0 into N
+!        while N is less than the count of TopicsAvailable
+!        begin
+!            index TopicCheckbox to N
+!            if TopicCheckbox
+!            begin
+!                if Topics is not empty put Topics cat `,` into Topics
+!                put Topics cat item N of TopicsAvailable into Topics
+!            end
+!            increment N
+!        end
+!        log Topics
+!        set the text of TopicsLabel to Topics
+!        close TopicsWindow
+!    end
+!    show TopicsWindow
+!    adjust TopicsWindow
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Here when the user clicks the Send button
+SendQueryClick:
+!    put TopicsLabel into Topics
+!    put QueryInput into Query
+!    if LLMCheckbox put `LLM:` cat Query into Query
+    put `query` into State
+!    clear ResultsList
+    put empty into ReceivedMessage
+    print `Send ` cat Query
+    send to ServerTopic
+        sender MyTopic
+        action `query`
+        message Topics cat `|` cat Query
+    go to WaitForReply
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Here when the user clicks an item in the results list
+ResultsListClick:
+!    print `Select ` cat ResultsList
+!    put the selected item in ResultsList into Query
+    put the position of `:` in Query into P
+    put left P of Query into Query
+    put `content` into State
+    put empty into ReceivedMessage
+    send to ServerTopic
+        sender MyTopic
+        action `view`
+        message Query
+    go to WaitForReply
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Here when the user clicks the exit button
+ExitButtonClick:
+!    set property `topics` of Config to the text of TopicsLabel
+    print Config
+!    save Config to ConfigFileName
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Wait for a reply. This may arrive in a different thread, so just save it
+WaitForReply:
+    while ReceivedMessage is empty wait 10 ticks
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Process a received message
+ProcessMessage:
+    put property `message` of ReceivedMessage into MessageText
+    put property `action` of ReceivedMessage into Action
+    if State is `topics`
+    begin
+        if Action is `confirm` gosub to SendConfirmation
+        put MessageText into TopicsAvailable
+        print `Topics available: ` cat TopicsAvailable
+!        enable ChooseTopicsButton
+!        enable SendQueryButton
+    end
+    else if State is `query`
+    begin
+!        print MessageText
+        if MessageText is `[]` set DocletList to `["No results"]`
+!        set ResultsList to json MessageText
+!        print ResultsList
+!        set DocletList to ResultsList
+    end
+    else if State is `content`
+    begin
+!        create MDMainPanel type QVBoxLayout
+!        create MDPanel
+!        set the text of MDPanel to MessageText
+!        add MDPanel to MDMainPanel
+!        create MDCloseButton text `Close`
+!        add MDCloseButton to MDMainPanel
+!        on click MDCloseButton
+        begin
+!            set property `content-width` of Config to the width of MDWindow
+!            set property `content-height` of Config to the height of MDWindow
+!            close MDWindow
+        end
+
+!        create MDWindow title ResultsList !size 700 500
+!        set the layout of MDWindow to MDMainPanel
+!        show MDWindow
+!        if Config has property `content-width`
+!            if Config has property `content-height`
+!            begin
+!                set the size of MDWindow to
+!                    property `content-width` of Config
+!                    property `content-height` of Config
+!                stop
+!            end
+!        adjust MDWindow
+    end
+    stop
+
+! Send a confirmation message
+SendConfirmation:
+    send to ServerTopic
+        sender MyTopic
+        action `confirm`
+    return
