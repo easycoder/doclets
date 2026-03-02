@@ -62,7 +62,6 @@
         if MessageQueue is not empty
         begin
             pop ReceivedMessage from MessageQueue
-!            log `Incoming: ` cat ReceivedMessage
             put entry `sender` of ReceivedMessage into Sender
             put entry `action` of ReceivedMessage into Action
             put entry `message` of ReceivedMessage into MessageText
@@ -80,12 +79,10 @@
 GetTopics:
     put the doclet topics into Topics
     put Topics into MessageText
-!    log `Available topics: ` cat MessageText
     go to SendReply
 
 ! Process a query
 DoQuery:
-!    log `Query: ` cat Message
     get doclet ResultList from ReceivedMessage
     if the count of ResultList is 0 log `No results`
     else log `Sending ` cat left 40 of ResultList
