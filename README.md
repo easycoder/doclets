@@ -12,17 +12,17 @@ Doclets are date-numbered text files that store notes, decisions, events, and pl
 ~/Doclets/
    ├── Doclets/
    │   ├── 2026/
-   │   │   ├── 260102.00.txt
-   │   │   ├── 260102.01.txt
-   │   │   ├── 260108.01.txt
+   │   │   ├── 260102-00.md
+   │   │   ├── 260102-01.md
+   │   │   ├── 260108-01.md
    │   │   └── ...
    │   ├── 2025/
-   │   │   ├── 251201.01.txt
+   │   │   ├── 251201-01.md
    │   │   └── ...
    │   └── ...
    ├── General/
    │   ├── 2026/
-   │   │   ├── 260214.00.txt
+   │   │   ├── 260214-00.md
    │   │   └── ...
    │   └── ...
    └── ...
@@ -31,7 +31,7 @@ Doclets are date-numbered text files that store notes, decisions, events, and pl
 ### Doclet Format
 
 Each doclet file:
-- Named as `YYMMDD.NN.txt` (e.g., `260102.01.txt`)
+- Named as `YYMMDD-NN.md` (e.g., `260102-01.mx`)
 - First line is subject: `# Subject line here`
 - Rest is Markdown-formatted content
 - Organized in year folders for easy management
