@@ -23,11 +23,11 @@
         "gap": "0.5em",
         "padding": "0.3em 0.4em",
         "box-sizing": "border-box",
-        "#": ["$TopicsLabel", "$ChooseButton"],
+        "#": ["$TopicList", "$ChooseButton"],
 
-        "$TopicsLabel": {
+        "$TopicList": {
             "#element": "div",
-            "@id": "TopicsLabel",
+            "@id": "TopicList",
             "#content": "Topics: None",
             "flex": 1,
             "text-align": "left",
@@ -168,7 +168,7 @@
                 "min-height": 0,
                 "overflow-y": "auto",
                 "text-align": "left",
-                "#": ["$TopicItem"],
+                "#": ["$TopicItem", "$TopicItemTemplate"],
 
                 "$TopicItem": {
                     "#element": "div",
@@ -186,9 +186,38 @@
                     },
 
                     "$TopicName": {
-                        "#element": "div",
+                        "#element": "span",
                         "@id": "TopicName-/SEQ/",
                         "#content": "topic-/SEQ/"
+                    }
+                },
+
+                "$TopicItemTemplate": {
+                    "#element": "div",
+                    "@id": "TopicItemTemplate",
+                    "display": "none",
+                    "#": ["$TopicItemTemplateRow"],
+
+                    "$TopicItemTemplateRow": {
+                        "#element": "div",
+                        "@id": "TopicItem-__SEQ__",
+                        "display": "flex",
+                        "align-items": "center",
+                        "gap": "0.5em",
+                        "padding": "0.2em 0",
+                        "#": ["$TopicItemTemplateCheckbox", "$TopicItemTemplateName"],
+
+                        "$TopicItemTemplateCheckbox": {
+                            "#element": "input",
+                            "@id": "TopicCheckbox-__SEQ__",
+                            "@type": "checkbox",
+                            "@value": "__VALUE__"
+                        },
+
+                        "$TopicItemTemplateName": {
+                            "#element": "span",
+                            "#content": "__TEXT__"
+                        }
                     }
                 }
             },

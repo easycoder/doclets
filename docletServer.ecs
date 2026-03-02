@@ -35,8 +35,16 @@
     load MQTT_Token from `~/.mqtt_token`
     print `Token is ` cat MQTT_Token
 
+    ! Get the user ID
+    if file `~/.mqtt_userid` does not exist
+    begin
+        print `No user ID could be found.`
+        exit
+    end
+    load MyID from `~/.mqtt_userid`
+    print `User ID is ` cat MyID
+
     ! Set up MQTT
-    put `a8:41:f4:d3:19:dd/request` into MyID
     init ServerTopic
         name MyID
         qos 1

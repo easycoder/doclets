@@ -8,14 +8,28 @@
 !   Doclet query system
 
     div Body
-    button Choose
+    div TopicList
+    div TopicsDialogMask
+    div TopicsDialogList
+    div TopicItemTemplate
+    div TopicItemTemplateRow
+    div DocletListPanel
+    button ChooseTopicsButton
     button Send
+    button TopicsDialogOK
+    button DocletButton
+    input QueryInput
+    input TopicCheckbox
 
     topic MyTopic
     topic ServerTopic
     variable MyID
     variable Topics
     variable Query
+    variable TopicsMarkup
+    variable ResultsMarkup
+    variable Text
+    variable TopicItemMarkup
     variable Mobile
     variable State
     variable Action
@@ -23,14 +37,17 @@
     variable N
     variable P
     variable Config
+    variable WaitCount
     variable ReceivedMessage
     variable TopicsAvailable
+    variable TopicsListed
+    variable TopicsSelected
     variable DocletList
     variable H
 
     variable MainScreenWebson
 
-!    debug step
+    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up the UI
@@ -42,7 +59,7 @@
     print `MyID = ` cat MyID
     
     init ServerTopic
-        name `38:54:39:34:62:d7/request`
+        name `a8:41:f4:d3:19:dd/request`
         qos 1
 
     init MyTopic
@@ -72,7 +89,16 @@
 Connected:
     ! Do the basic setup of the main window
 	gosub to SetupScreen
-    stop
+    put `idle` into State
+    put empty into Topics
+    put empty into ReceivedMessage
+    set TopicsSelected to array
+
+    put `topics` into State
+    send to ServerTopic
+        sender MyTopic
+        action `topics`
+    go to WaitForReply
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up the main screen
@@ -114,9 +140,23 @@ SetupScreen:
     	or go to AbandonShip
 	render MainScreenWebson in Body
 
-    attach Choose to `ChooseTopicsButton`
+    attach TopicList to `TopicList`
+    attach QueryInput to `QueryInput`
+    attach TopicsDialogMask to `TopicsDialogMask`
+    attach TopicsDialogList to `TopicsDialogList`
+    attach TopicItemTemplate to `TopicItemTemplate`
+    attach TopicItemTemplateRow to `TopicItem-__SEQ__`
+    attach DocletListPanel to `DocletListPanel`
+    attach ChooseTopicsButton to `ChooseTopicsButton`
     attach Send to `SendQueryButton`
-    stop
+    attach TopicsDialogOK to `TopicsDialogOKButton`
+
+    on click ChooseTopicsButton go to ChooseTopics
+    on click Send go to SendQueryClick
+    on click TopicsDialogOK go to TopicsDialogOKClick
+
+    gosub to UpdateTopicsLabel
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Warn the user and abandon this run
@@ -126,84 +166,93 @@ AbandonShip:
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Initialise things
-    put `idle` into State
-    wait 3
-
-    stop
-    
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Request the list of topics from the hub
-    put `topics` into State
-    send to ServerTopic
-        sender MyTopic
-        action `topics`
-    go to WaitForReply
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the Choose button
 ChooseTopics:
-!    create TopicsWindow title `Topics`
-!    create Panel1 type QVBoxLayout
-!    set the layout of TopicsWindow to Panel1
-!    create Panel2 type QVBoxLayout
-!    add Panel2 to Panel1
-!    set the elements of TopicCheckbox to the count of TopicsAvailable
-!    put TopicsLabel into Items
-!    split Items on `,`
-!    put 0 into N
-!    while N is less than the count of TopicsAvailable
-!    begin
-!        put item N of TopicsAvailable into Text
-!        index TopicCheckbox to N
-!        create TopicCheckbox text Text
-!        put 0 into M
-!        while M is less than the elements of Items
-!        begin
-!            index Items to M
-!            if Text is Items
-!            begin
-!                set the state of TopicCheckbox to true
-!                go to CT2
-!            end
-!            increment M
-!        end
-!    CT2:
-!        add TopicCheckbox to Panel2
-!        increment N
-!    end
-!    create OKButton text `OK`
-!    add OKButton to Panel1
-!    on click OKButton
-!    begin
-!        put empty into Topics
-!        put 0 into N
-!        while N is less than the count of TopicsAvailable
-!        begin
-!            index TopicCheckbox to N
-!            if TopicCheckbox
-!            begin
-!                if Topics is not empty put Topics cat `,` into Topics
-!                put Topics cat item N of TopicsAvailable into Topics
-!            end
-!            increment N
-!        end
-!        log Topics
-!        set the text of TopicsLabel to Topics
-!        close TopicsWindow
-!    end
-!    show TopicsWindow
-!    adjust TopicsWindow
+    if TopicsAvailable is empty
+    begin
+        set TopicsListed to array
+    end
+    else
+    begin
+        json split TopicsAvailable on `,` into TopicsListed
+    end
+
+    put empty into TopicsMarkup
+    put 0 into N
+    while N is less than json count of TopicsListed
+    begin
+        put element N of TopicsListed into Text
+        put content of TopicItemTemplate into TopicItemMarkup
+        replace `__SEQ__` with N in TopicItemMarkup
+        replace `__VALUE__` with Text in TopicItemMarkup
+        replace `__TEXT__` with Text in TopicItemMarkup
+        put TopicsMarkup
+            cat TopicItemMarkup
+            into TopicsMarkup
+        add 1 to N
+    end
+
+    set content of TopicsDialogList to TopicsMarkup
+
+    set the elements of TopicCheckbox to json count of TopicsListed
+    put 0 into N
+    while N is less than elements of TopicCheckbox
+    begin
+        index TopicCheckbox to N
+        attach TopicCheckbox to `TopicCheckbox-` cat N
+        put element N of TopicsListed into Text
+        if json index of Text in TopicsAvailable is greater than -1
+        begin
+            set attribute `checked` of TopicCheckbox
+        end
+        add 1 to N
+    end
+    on change TopicCheckbox go to TopicCheckboxClick
+
+    set style `display` of TopicsDialogMask to `flex`
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Here when the user clicks a topic checkbox
+TopicCheckboxClick:
+    put index of TopicCheckbox into N
+    put element N of TopicsAvailable into Text
+    put json index of Text in TopicsSelected into P
+    if P is less than 0
+    begin
+        json add Text to TopicsSelected
+    end
+    else
+    begin
+        json delete element P from TopicsSelected
+    end
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Here when the user clicks the OK button in the Choose dialog
+TopicsDialogOKClick:
+    put empty into TopicsAvailable
+    put 0 into N
+    while N is less than json count of TopicsSelected
+    begin
+        put element N of TopicsSelected into Text
+        if Text is not empty
+        begin
+            if TopicsAvailable is not empty put TopicsAvailable cat `,` into TopicsAvailable
+            put TopicsAvailable cat Text into TopicsAvailable
+        end
+        add 1 to N
+    end
+    gosub to UpdateTopicsLabel
+    set style `display` of TopicsDialogMask to `none`
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the Send button
 SendQueryClick:
-!    put TopicsLabel into Topics
-!    put QueryInput into Query
-!    if LLMCheckbox put `LLM:` cat Query into Query
+    put QueryInput into Query
     put `query` into State
-!    clear ResultsList
+    clear DocletListPanel
     put empty into ReceivedMessage
     print `Send ` cat Query
     send to ServerTopic
@@ -215,8 +264,8 @@ SendQueryClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks an item in the results list
 ResultsListClick:
-!    print `Select ` cat ResultsList
-!    put the selected item in ResultsList into Query
+    put index of DocletButton into N
+    put element N of DocletList into Query
     put the position of `:` in Query into P
     put left P of Query into Query
     put `content` into State
@@ -238,28 +287,57 @@ ExitButtonClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Wait for a reply. This may arrive in a different thread, so just save it
 WaitForReply:
-    while ReceivedMessage is empty wait 10 ticks
+    put 0 into WaitCount
+    while ReceivedMessage is empty
+    begin
+        add 1 to WaitCount
+        if WaitCount is greater than 100
+        begin
+            print `Timeout waiting for response`
+            stop
+        end
+        wait 10 ticks
+    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a received message
 ProcessMessage:
-    put property `message` of ReceivedMessage into MessageText
-    put property `action` of ReceivedMessage into Action
+    print ReceivedMessage
     if State is `topics`
     begin
         if Action is `confirm` gosub to SendConfirmation
-        put MessageText into TopicsAvailable
-        print `Topics available: ` cat TopicsAvailable
-!        enable ChooseTopicsButton
-!        enable SendQueryButton
+        print `Topics available: ` cat ReceivedMessage
+        put ReceivedMessage into TopicsAvailable
+        gosub to UpdateTopicsLabel
     end
     else if State is `query`
     begin
-!        print MessageText
-        if MessageText is `[]` set DocletList to `["No results"]`
-!        set ResultsList to json MessageText
-!        print ResultsList
-!        set DocletList to ResultsList
+        if ReceivedMessage is `[]` put `["No results"]` into MessageText
+        put MessageText into DocletList
+
+        put empty into ResultsMarkup
+        put 0 into N
+        while N is less than json count of DocletList
+        begin
+            put element N of DocletList into Text
+            put ResultsMarkup
+                cat `<button id='DocletButton-` cat N cat `' style='display:block;width:100%;text-align:left;margin-bottom:0.3em;'>`
+                cat Text
+                cat `</button>`
+                into ResultsMarkup
+            add 1 to N
+        end
+        set content of DocletListPanel to ResultsMarkup
+
+        set the elements of DocletButton to json count of DocletList
+        put 0 into N
+        while N is less than elements of DocletButton
+        begin
+            index DocletButton to N
+            attach DocletButton to `DocletButton-` cat N
+            add 1 to N
+        end
+        on click DocletButton go to ResultsListClick
     end
     else if State is `content`
     begin
@@ -290,6 +368,29 @@ ProcessMessage:
 !        adjust MDWindow
     end
     stop
+
+UpdateTopicsLabel:
+    put 0 into N
+    while N is less than json count of TopicsSelected
+    begin
+        put element N of TopicsSelected into Text
+        if Text is not empty
+        begin
+            if TopicsAvailable is not empty put TopicsAvailable cat `,` into TopicsAvailable
+            put TopicsAvailable cat Text into TopicsAvailable
+        end
+        add 1 to N
+    end
+    return
+
+    print TopicsSelected
+    put TopicsSelected into Text
+    replace `[` with empty in Text
+    replace `]` with empty in Text
+    replace `"` with empty in Text
+    if Text is empty set content of TopicList to `Topics: None`
+    else set content of TopicList to `Topics: ` cat Text
+    return
 
 ! Send a confirmation message
 SendConfirmation:
