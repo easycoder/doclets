@@ -31,7 +31,7 @@ Doclets are date-numbered text files that store notes, decisions, events, and pl
 ### Doclet Format
 
 Each doclet file:
-- Named as `YYMMDD-NN.md` (e.g., `260102-01.mx`)
+- Named as `YYMMDD-NN.md` (e.g., `260102-01.md`)
 - First line is subject: `# Subject line here`
 - Rest is Markdown-formatted content
 - Organized in year folders for easy management
