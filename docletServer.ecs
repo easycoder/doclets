@@ -19,12 +19,10 @@
     variable Action
     variable SenderQoS
     variable MessageText
-    variable ConfirmationRequested
     
 !    debug step
 
     reset WaitForConfirmation
-    clear ConfirmationRequested
 
     ! Get the MQTT token
     if file `~/.mqtt_token` does not exist
@@ -103,29 +101,13 @@ GetDoclet:
     get doclet MessageText from ReceivedMessage
     go to SendReply
 
-! Process a confirmation
-DoConfirm:
-    if WaitForConfirmation has entry Sender
-    begin
-        log `Confirmation from ` cat Sender
-        clear entry Sender of WaitForConfirmation
-    end
-    else log `No confirmation requested`
-    return
-
 ! Send a reply message
 SendReply:
     init SenderTopic
         name SenderName
         qos SenderQoS
-    if ConfirmationRequested
-    begin
-        set entry Sender of WaitForConfirmation
-        set Action to `confirm`
-    end
-    else set Action to `reply`
+    set Action to `reply`
     send to SenderTopic
         action Action
         message MessageText
-    clear ConfirmationRequested
     return
