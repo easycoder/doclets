@@ -35,6 +35,7 @@
     topic MyTopic
     topic ServerTopic
     variable MQTT_Token
+    variable ServerTopicName
     variable UUID
     variable Topics
     variable Query
@@ -131,6 +132,15 @@
     load MQTT_Token from `~/.mqtt_token`
     print `Token is ` cat MQTT_Token
 
+    ! Get the server topic name
+    if file `~/.mqtt_userid` does not exist
+    begin
+        print `No MQTT server topic name could be found.`
+        exit
+    end
+    load ServerTopicName from `~/.mqtt_userid`
+    print `Server topic name is ` cat ServerTopicName
+
     put uuid into UUID
 
     init MyTopic
@@ -165,6 +175,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Request the list of topics from the hub
     put `topics` into State
+    log `Sending 'topics' to ` cat ServerTopic
     send to ServerTopic
         sender MyTopic
         action `topics`
