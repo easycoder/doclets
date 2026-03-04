@@ -1,5 +1,10 @@
 # Doclets - Searchable Dated Notes
 
+## AI Visitors
+
+This repository includes an AI-focused knowledge base in [AI/README.md](AI/README.md).
+It is intended to help new AI agents quickly understand project structure, conventions, and preferred implementation patterns.
+
 A system for managing and searching through dated note files. The project currently only handles keyword searches. Future development will also enable full-text queries using a local LLM, but this functionality is currently not working.
 
 ## Overview
@@ -126,6 +131,52 @@ Now you can run the reader, on the same machine or on any other. If you're not o
 easycoder doclets.ecs
 ```
 The UI should start up and after a second or two the buttons will become enabled. Click the `Choose` buttons to select which of your topics you want to search, then type a keyword into the `Query` box and click `Send`. You'll get back a list of doclets, and clicking any one opens another window with the doclet pretty-printed.
+
+## Token usage (server + JS UI)
+
+- **Server token** (private): keep using `~/.mqtt_token` for `docletServer.ecs`. Never serve this file over HTTP.
+- **Browser token** (public to browser): create a separate restricted token and store it in `mqtt-client-token.txt` in the web root.
+
+Quick local setup:
+
+```bash
+cp mqtt-client-token.example.txt mqtt-client-token.txt
+# Replace line 1 with your browser-safe token
+```
+
+If you are using encrypted token storage for the server, decrypt to the server file only:
+
+```bash
+MQTT_TOKEN_KEY='your-key' MQTT_TOKEN_FILE='/path/to/mqtt.token.enc' php mqtt_token.php decrypt > ~/.mqtt_token
+chmod 600 ~/.mqtt_token
+```
+
+The web reader `doclets-js.ecs` now loads its MQTT token from `mqtt-client-token.txt` at runtime, so there is no token hardcoded in source.
+
+### EasyCoder MQTT command token formats
+
+`MQTT.js` supports both plain and encrypted token forms in the `mqtt` command:
+
+```easycoder
+mqtt
+   token PlainTokenValue
+   id MyID
+   broker `mqtt.flespi.io`
+   port 443
+   subscribe MyTopic
+```
+
+```easycoder
+mqtt
+   token EncryptedTokenValue SecretKeyValue
+   id MyID
+   broker `mqtt.flespi.io`
+   port 443
+   subscribe MyTopic
+```
+
+Both `EncryptedTokenValue` and `SecretKeyValue` can be any EasyCoder value (string literal or variable).
+When two values are given, `MQTT.js` decrypts the token in the browser (Web Crypto API) before connecting.
 
 ## Where this is heading
 

@@ -1,0 +1,4 @@
+# Copy this file to mqtt-client-token.txt and put a browser-safe MQTT token on line 1.
+# Do not put your full server token in browser files.
+# Preferred: create a separate, restricted token for browser use.
+BROWSER_MQTT_TOKEN_HERE

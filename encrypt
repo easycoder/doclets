@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -e
+MQTT_TOKEN_KEY='19b8cbff-d499-42f6-9e43-61bdbcf04cbe' MQTT_TOKEN_FILE='../encrypted' php mqtt_token.php encrypt 'kgDkpyDUubtAchcj9ts85QPJOwE1C2MKjNuoeb4nisd23pM33uTb5m7AGuMNhJMP'
+
