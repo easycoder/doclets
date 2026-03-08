@@ -3,7 +3,7 @@
     script DocletServer
 
     use mqtt
-    use plugin Doclets from /home/graham/dev/doclets/ec_doclets.py
+    use plugin Doclets from ec_doclets.py
 
     topic ServerTopic
     topic SenderTopic

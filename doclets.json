@@ -9,7 +9,26 @@
     "display": "flex",
     "flex-direction": "column",
     "font-size": "<#parent_width/27>",
-    "#": ["$Title", "$Topics", "$QueryPanel", "$ResultsPanel", "$TopicsDialog", "$NewDocletDialog", "$DocletViewer"],
+    "#": ["$DebugRow", "$Title", "$Topics", "$QueryPanel", "$ResultsPanel", "$TopicsDialog", "$NewDocletDialog", "$DocletViewer"],
+
+    "$DebugRow": {
+        "#element": "div",
+        "@id": "easycoder-tracer",
+        "display": "none",
+        "flex": "0 0 auto",
+        "position": "sticky",
+        "top": 0,
+        "z-index": 15,
+        "padding": "0.35em 0.45em",
+        "box-sizing": "border-box",
+        "min-height": "1.2em",
+        "width": "100%",
+        "text-align": "left",
+        "font-family": "monospace",
+        "white-space": "pre-wrap",
+        "background": "#f7f7f7",
+        "border": "1px solid #bbb"
+    },
 
     "$Topics": {
         "#element": "div",
@@ -54,7 +73,7 @@
         "padding-bottom": "0.5em",
         "border": "2px solid #328080",
         "background-image": "linear-gradient(to bottom, rgba(255,150,150,1), rgba(150,255,200,1))",
-        "#": ["$Title", "$DebugRow"],
+        "#": ["$Title"],
 
         "$Title": {
             "#element": "div",
@@ -64,68 +83,8 @@
             "font-weight": "bold",
             "user-select": "none",
             "color": "#450"
-        },
-
-        "$DebugRow": {
-            "#element": "div",
-            "@id": "DebugRow",
-            "display": "none",
-            "margin-top": "0.35em",
-            "padding": "0 0.3em",
-            "box-sizing": "border-box",
-            "flex-wrap": "wrap",
-            "gap": "0.35em",
-            "justify-content": "center",
-            "#": ["$DbgEnableButton", "$DbgTraceButton", "$DbgPauseDeleteButton", "$DbgPauseResultButton", "$DbgDumpTraceButton", "$DbgStepButton"],
-
-            "$DbgEnableButton": {
-                "#element": "button",
-                "@id": "DbgEnableButton",
-                "#content": "Debug OFF",
-                "padding": "0.2em 0.5em",
-                "cursor": "pointer"
-            },
-
-            "$DbgTraceButton": {
-                "#element": "button",
-                "@id": "DbgTraceButton",
-                "#content": "Trace OFF",
-                "padding": "0.2em 0.5em",
-                "cursor": "pointer"
-            },
-
-            "$DbgPauseDeleteButton": {
-                "#element": "button",
-                "@id": "DbgPauseDeleteButton",
-                "#content": "PauseDel OFF",
-                "padding": "0.2em 0.5em",
-                "cursor": "pointer"
-            },
-
-            "$DbgPauseResultButton": {
-                "#element": "button",
-                "@id": "DbgPauseResultButton",
-                "#content": "PauseRes OFF",
-                "padding": "0.2em 0.5em",
-                "cursor": "pointer"
-            },
-
-            "$DbgDumpTraceButton": {
-                "#element": "button",
-                "@id": "DbgDumpTraceButton",
-                "#content": "Dump Trace",
-                "padding": "0.2em 0.5em",
-                "cursor": "pointer"
-            },
-
-            "$DbgStepButton": {
-                "#element": "button",
-                "@id": "DbgStepButton",
-                "#content": "Step Next",
-                "padding": "0.2em 0.5em",
-                "cursor": "pointer"
-            }
         }
+
     },
 
     "$QueryPanel": {

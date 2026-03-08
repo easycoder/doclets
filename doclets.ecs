@@ -35,12 +35,6 @@
     button DocletViewClose
     button NewDocletCreate
     button NewDocletCancel
-    button DbgEnableButton
-    button DbgTraceButton
-    button DbgPauseDeleteButton
-    button DbgPauseResultButton
-    button DbgDumpTraceButton
-    button DbgStepButton
     button DocletButton
     input QueryInput
     input TopicCheckbox
@@ -83,16 +77,6 @@
     variable NewInFlight
     variable NewRequestID
     variable H
-    variable DbgEnabled
-    variable DbgTraceEnabled
-    variable DbgPauseDelete
-    variable DbgPauseResult
-    variable DbgStepNext
-    variable DbgTraceMax
-    variable DbgTraceBuffer
-    variable DbgPoint
-    variable DbgLine
-    variable DbgCommand
     variable DbgTapCount
     variable DbgLastTap
     variable DbgNow
@@ -109,7 +93,7 @@
 
 !   Set up MQTT
     put `Doclets-` cat random 999999 into MyID
-    print `MyID = ` cat MyID
+    log `MyID = ` cat MyID
     
     init ServerTopic
         name `a8:41:f4:d3:19:dd/request`
@@ -135,7 +119,7 @@
 
     on mqtt connect
     begin
-        print `MQTT Connected`
+        log `MQTT Connected`
         go to Connected
     end
     
@@ -147,6 +131,7 @@
 
     every 20 ticks
     begin
+        if tracing stop
         if DocletViewMode is `edit`
         begin
             put DocletEditText into Text
@@ -182,21 +167,21 @@ Connected:
 !   Set up the main screen
 SetupScreen:
     ! put SaveAuthToken into storage as `save-auth-token`
-    print `Set up the screen...`
+    log `Set up the screen...`
 
     set the title to `Doclet reader`
 
     clear Mobile
     if mobile
     begin
-!    	print `Mobile browser detected`
+!    	log `Mobile browser detected`
         if portrait
         begin
-!        	print `In portrait mode`
+!        	log `In portrait mode`
         	set Mobile
         end
     end
-!    else print `PC browser detected`
+!    else log `PC browser detected`
 
 	create Body
     if Mobile
@@ -221,7 +206,7 @@ SetupScreen:
 	render MainScreenWebson in Body
 
     attach TitleBanner to `rbr-banner`
-    attach DebugRow to `DebugRow`
+    attach DebugRow to `easycoder-tracer`
     attach TopicList to `TopicList`
     attach QueryInput to `QueryInput`
     attach TopicsDialogMask to `TopicsDialogMask`
@@ -248,12 +233,6 @@ SetupScreen:
     attach DocletViewClose to `DocletViewCloseButton`
     attach NewDocletCreate to `NewDocletCreateButton`
     attach NewDocletCancel to `NewDocletCancelButton`
-    attach DbgEnableButton to `DbgEnableButton`
-    attach DbgTraceButton to `DbgTraceButton`
-    attach DbgPauseDeleteButton to `DbgPauseDeleteButton`
-    attach DbgPauseResultButton to `DbgPauseResultButton`
-    attach DbgDumpTraceButton to `DbgDumpTraceButton`
-    attach DbgStepButton to `DbgStepButton`
 
     on click TitleBanner go to TitleBannerClick
     on click ChooseTopicsButton go to ChooseTopics
@@ -268,12 +247,6 @@ SetupScreen:
     on click DocletViewClose go to DocletViewCloseClick
     on click NewDocletCreate go to NewDocletCreateClick
     on click NewDocletCancel go to NewDocletCancelClick
-    on click DbgEnableButton go to DbgEnableClick
-    on click DbgTraceButton go to DbgTraceClick
-    on click DbgPauseDeleteButton go to DbgPauseDeleteClick
-    on click DbgPauseResultButton go to DbgPauseResultClick
-    on click DbgDumpTraceButton go to DbgDumpTraceClick
-    on click DbgStepButton go to DbgStepClick
     on change DocletEditText go to DocletEditChanged
 
     enable QueryInput
@@ -287,27 +260,10 @@ SetupScreen:
     clear NewInFlight
     clear NewRequestID
 
-    ! Optional diagnostics (defaults OFF; set these in storage to enable)
-    get DbgEnabled from storage as `dbg-enabled`
-    if DbgEnabled is `null` clear DbgEnabled
-    if DbgEnabled is `undefined` clear DbgEnabled
-    get DbgTraceEnabled from storage as `dbg-trace-enabled`
-    if DbgTraceEnabled is `null` clear DbgTraceEnabled
-    if DbgTraceEnabled is `undefined` clear DbgTraceEnabled
-    get DbgPauseDelete from storage as `dbg-pause-delete`
-    if DbgPauseDelete is `null` clear DbgPauseDelete
-    if DbgPauseDelete is `undefined` clear DbgPauseDelete
-    get DbgPauseResult from storage as `dbg-pause-result`
-    if DbgPauseResult is `null` clear DbgPauseResult
-    if DbgPauseResult is `undefined` clear DbgPauseResult
-    clear DbgStepNext
-    put 200 into DbgTraceMax
-    set DbgTraceBuffer to array
     set style `display` of DebugRow to `none`
     clear DbgTapCount
     clear DbgLastTap
     clear DbgRowVisible
-    gosub to UpdateDebugButtons
 
     get TopicsDisplayed from storage as `topic-list`
     if TopicsDisplayed is `null` clear TopicsDisplayed
@@ -326,7 +282,7 @@ SetupScreen:
         add 1 to N
     end
     gosub to UpdateTopicsLabel
-    print `Topics selected: ` cat TopicsSelected
+    log `Topics selected: ` cat TopicsSelected
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -446,12 +402,10 @@ TopicsDialogOKClick:
 SendQueryClick:
     enable QueryInput
     put QueryInput into Query
-    put `SendQueryClick` into DbgPoint
-    gosub to DebugMark
     put `query` into State
     clear DocletListPanel
     put empty into ReceivedMessage
-    print `Send ` cat Query
+    log `Send ` cat Query
     send to ServerTopic
         sender MyTopic
         action `query`
@@ -461,34 +415,24 @@ SendQueryClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks an item in the results list
 ResultsListClick:
-    put `ResultClick:Enter` into DbgPoint
-    gosub to DebugMark
-    if DbgPauseResult gosub to DebugPause
     put index of DocletButton into N
     put element N of DocletList into Query
-    put `ResultClick:SelectedElement` into DbgPoint
-    gosub to DebugMark
     put the position of `:` in Query into P
     put left P of Query into Query
     put Query into CurrentDocletName
-    put `ResultClick:BeforeViewSend` into DbgPoint
-    gosub to DebugMark
-    if DbgPauseResult gosub to DebugPause
     put `content` into State
     put empty into ReceivedMessage
     send to ServerTopic
         sender MyTopic
         action `view`
         message Query
-    put `ResultClick:AfterViewSend` into DbgPoint
-    gosub to DebugMark
     go to WaitForReply
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the exit button
 ExitButtonClick:
 !    set property `topics` of Config to the text of TopicsLabel
-    print Config
+    log Config
 !    save Config to ConfigFileName
     exit
 
@@ -501,7 +445,7 @@ WaitForReply:
         add 1 to WaitCount
         if WaitCount is greater than 100
         begin
-            print `Timeout waiting for response`
+            log `Timeout waiting for response`
             enable QueryInput
             remove attribute `disabled` of QueryInput
             if State is `new`
@@ -519,12 +463,10 @@ WaitForReply:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a received message
 ProcessMessage:
-    put `ProcessMessage` into DbgPoint
-    gosub to DebugMark
     if State is `topics`
     begin
         if Action is `confirm` gosub to SendQueryButtonConfirmation
-!        print `Topics available: ` cat ReceivedMessage
+!        log `Topics available: ` cat ReceivedMessage
         put ReceivedMessage into storage as `topics-available`
         put ReceivedMessage into TopicsAvailable
         set TopicsReady
@@ -542,7 +484,7 @@ ProcessMessage:
             stop
         end
         put ReceivedMessage into DocletList
-        print DocletList
+        log DocletList
 
         put empty into ResultsMarkup
         put 0 into N
@@ -577,21 +519,15 @@ ProcessMessage:
     end
     else if State is `content`
     begin
-        put `ContentState:Enter` into DbgPoint
-        gosub to DebugMark
-        if DbgPauseResult gosub to DebugPause
         enable QueryInput
         put the position of `Error reading file:` in ReceivedMessage into P
         if P is greater than -1
         begin
-            put `ContentReadError` into DbgPoint
-            gosub to DebugMark
-            gosub to DebugPause
+            alert ReceivedMessage
+            stop
         end
         if left 8 of ReceivedMessage is `Created `
         begin
-            put `ContentState:CreatedRelay` into DbgPoint
-            gosub to DebugMark
             if CurrentDocletName is not empty
             begin
                 put empty into ReceivedMessage
@@ -599,8 +535,6 @@ ProcessMessage:
                     sender MyTopic
                     action `view`
                     message CurrentDocletName
-                put `ContentState:ResentView` into DbgPoint
-                gosub to DebugMark
                 go to WaitForReply
             end
             stop
@@ -619,9 +553,6 @@ ProcessMessage:
         disable DocletViewSave
         set style `display` of DocletViewSave to `none`
         set style `display` of DocletViewMask to `flex`
-        put `ContentState:Rendered` into DbgPoint
-        gosub to DebugMark
-        if DbgPauseResult gosub to DebugPause
         if AutoStartEdit
         begin
             clear AutoStartEdit
@@ -732,8 +663,6 @@ ProcessMessage:
     begin
         enable QueryInput
         put ReceivedMessage into MessageText
-        put `DeleteReply` into DbgPoint
-        gosub to DebugMark
         put the position of `Deleted ` in MessageText into P
         if P is greater than -1
         begin
@@ -742,7 +671,6 @@ ProcessMessage:
                 put SaveAuthToken into storage as `save-auth-token`
             end
             alert MessageText
-            if DbgPauseDelete gosub to DebugPause
             gosub to CloseDocletView
             go to SendQueryClick
         end
@@ -940,7 +868,7 @@ DocletViewSaveClick:
 !   Delete current doclet from prettified view
 DocletViewDeleteClick:
     put confirm `Delete ` cat CurrentDocletName cat ` ?` into Text
-    if not Text stop
+    if Text is empty stop
 
     gosub to EnsureSaveAuthToken
     if SaveAuthToken is empty
@@ -1035,7 +963,7 @@ SendConfirmation:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Triple-tap title to show/hide debug controls
+!   Triple-tap title to show/hide the tracer panel
 TitleBannerClick:
     put now into DbgNow
     ! Handle both second-based and millisecond-based now values
@@ -1066,155 +994,14 @@ ToggleDebugRow:
     if DbgRowVisible
     begin
         clear DbgRowVisible
+        clear DebugRow
         set style `display` of DebugRow to `none`
     end
     else
     begin
-        print `Show the debugger`
         set DbgRowVisible
-        set style `display` of DebugRow to `flex`
-        gosub to UpdateDebugButtons
+        set style `display` of DebugRow to `block`
     end
-    return
-
-DbgEnableClick:
-    if DbgEnabled
-    begin
-        clear DbgEnabled
-        remove `dbg-enabled` from storage
-    end
-    else
-    begin
-        set DbgEnabled
-        put `1` into storage as `dbg-enabled`
-    end
-    gosub to UpdateDebugButtons
-    stop
-
-DbgTraceClick:
-    if DbgTraceEnabled
-    begin
-        clear DbgTraceEnabled
-        remove `dbg-trace-enabled` from storage
-    end
-    else
-    begin
-        set DbgTraceEnabled
-        put `1` into storage as `dbg-trace-enabled`
-    end
-    gosub to UpdateDebugButtons
-    stop
-
-DbgPauseDeleteClick:
-    if DbgPauseDelete
-    begin
-        clear DbgPauseDelete
-        remove `dbg-pause-delete` from storage
-    end
-    else
-    begin
-        set DbgPauseDelete
-        put `1` into storage as `dbg-pause-delete`
-    end
-    gosub to UpdateDebugButtons
-    stop
-
-DbgPauseResultClick:
-    if DbgPauseResult
-    begin
-        clear DbgPauseResult
-        remove `dbg-pause-result` from storage
-    end
-    else
-    begin
-        set DbgPauseResult
-        put `1` into storage as `dbg-pause-result`
-    end
-    gosub to UpdateDebugButtons
-    stop
-
-DbgDumpTraceClick:
-    put 0 into N
-    while N is less than json count of DbgTraceBuffer
-    begin
-        put element N of DbgTraceBuffer into Text
-        print `TRC ` cat Text
-        add 1 to N
-    end
-    stop
-
-DbgStepClick:
-    set DbgStepNext
-    print `DBG step-next armed`
-    stop
-
-UpdateDebugButtons:
-    if DbgEnabled set content of DbgEnableButton to `Debug ON`
-    else set content of DbgEnableButton to `Debug OFF`
-    if DbgTraceEnabled set content of DbgTraceButton to `Trace ON`
-    else set content of DbgTraceButton to `Trace OFF`
-    if DbgPauseDelete set content of DbgPauseDeleteButton to `PauseDel ON`
-    else set content of DbgPauseDeleteButton to `PauseDel OFF`
-    if DbgPauseResult set content of DbgPauseResultButton to `PauseRes ON`
-    else set content of DbgPauseResultButton to `PauseRes OFF`
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Debug diagnostics helpers
-DebugMark:
-    if DbgEnabled
-    begin
-        put now cat `|` cat DbgPoint cat `|state=` cat State cat `|action=` cat Action cat `|doc=` cat CurrentDocletName into DbgLine
-        gosub to DebugTraceAdd
-        if DbgStepNext
-        begin
-            clear DbgStepNext
-            gosub to DebugPause
-        end
-    end
-    return
-
-DebugTraceAdd:
-    if DbgTraceEnabled
-    begin
-        json add DbgLine to DbgTraceBuffer
-        if json count of DbgTraceBuffer is greater than DbgTraceMax
-        begin
-            json delete element 0 from DbgTraceBuffer
-        end
-    end
-    return
-
-DebugPause:
-    if not DbgEnabled return
-    print `DBG ` cat DbgLine
-    put prompt `DBG command: Enter=continue, s=step-next, t=dump trace, off=disable debug` into DbgCommand
-    if DbgCommand is `s`
-    begin
-        set DbgStepNext
-        return
-    end
-    if DbgCommand is `t`
-    begin
-        put 0 into N
-        while N is less than json count of DbgTraceBuffer
-        begin
-            put element N of DbgTraceBuffer into Text
-            print `TRC ` cat Text
-            add 1 to N
-        end
-        return
-    end
-    if DbgCommand is `off`
-    begin
-        clear DbgEnabled
-        clear DbgTraceEnabled
-        clear DbgPauseDelete
-        clear DbgPauseResult
-        clear DbgStepNext
-        return
-    end
-    clear DbgStepNext
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
