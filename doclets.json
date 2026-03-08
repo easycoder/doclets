@@ -9,7 +9,7 @@
     "display": "flex",
     "flex-direction": "column",
     "font-size": "<#parent_width/27>",
-    "#": ["$Title", "$Topics", "$QueryPanel", "$ResultsPanel", "$TopicsDialog", "$DocletViewer"],
+    "#": ["$Title", "$Topics", "$QueryPanel", "$ResultsPanel", "$TopicsDialog", "$NewDocletDialog", "$DocletViewer"],
 
     "$Topics": {
         "#element": "div",
@@ -54,7 +54,7 @@
         "padding-bottom": "0.5em",
         "border": "2px solid #328080",
         "background-image": "linear-gradient(to bottom, rgba(255,150,150,1), rgba(150,255,200,1))",
-        "#": ["$Title"],
+        "#": ["$Title", "$DebugRow"],
 
         "$Title": {
             "#element": "div",
@@ -64,6 +64,67 @@
             "font-weight": "bold",
             "user-select": "none",
             "color": "#450"
+        },
+
+        "$DebugRow": {
+            "#element": "div",
+            "@id": "DebugRow",
+            "display": "none",
+            "margin-top": "0.35em",
+            "padding": "0 0.3em",
+            "box-sizing": "border-box",
+            "flex-wrap": "wrap",
+            "gap": "0.35em",
+            "justify-content": "center",
+            "#": ["$DbgEnableButton", "$DbgTraceButton", "$DbgPauseDeleteButton", "$DbgPauseResultButton", "$DbgDumpTraceButton", "$DbgStepButton"],
+
+            "$DbgEnableButton": {
+                "#element": "button",
+                "@id": "DbgEnableButton",
+                "#content": "Debug OFF",
+                "padding": "0.2em 0.5em",
+                "cursor": "pointer"
+            },
+
+            "$DbgTraceButton": {
+                "#element": "button",
+                "@id": "DbgTraceButton",
+                "#content": "Trace OFF",
+                "padding": "0.2em 0.5em",
+                "cursor": "pointer"
+            },
+
+            "$DbgPauseDeleteButton": {
+                "#element": "button",
+                "@id": "DbgPauseDeleteButton",
+                "#content": "PauseDel OFF",
+                "padding": "0.2em 0.5em",
+                "cursor": "pointer"
+            },
+
+            "$DbgPauseResultButton": {
+                "#element": "button",
+                "@id": "DbgPauseResultButton",
+                "#content": "PauseRes OFF",
+                "padding": "0.2em 0.5em",
+                "cursor": "pointer"
+            },
+
+            "$DbgDumpTraceButton": {
+                "#element": "button",
+                "@id": "DbgDumpTraceButton",
+                "#content": "Dump Trace",
+                "padding": "0.2em 0.5em",
+                "cursor": "pointer"
+            },
+
+            "$DbgStepButton": {
+                "#element": "button",
+                "@id": "DbgStepButton",
+                "#content": "Step Next",
+                "padding": "0.2em 0.5em",
+                "cursor": "pointer"
+            }
         }
     },
 
@@ -79,7 +140,7 @@
         "gap": "0.5em",
         "padding": "0.4em",
         "box-sizing": "border-box",
-        "#": ["$QueryInput", "$SendButton"],
+        "#": ["$QueryInput", "$SendButton", "$NewButton"],
 
         "$QueryInput": {
             "#element": "input",
@@ -95,7 +156,16 @@
         "$SendButton": {
             "#element": "button",
             "@id": "SendQueryButton",
-            "#content": "Send",
+            "#content": "Query",
+            "height": "2.2em",
+            "padding": "0 1em",
+            "cursor": "pointer"
+        },
+
+        "$NewButton": {
+            "#element": "button",
+            "@id": "NewDocletButton",
+            "#content": "New",
             "height": "2.2em",
             "padding": "0 1em",
             "cursor": "pointer"
@@ -260,17 +330,124 @@
         }
     },
 
-    "$DocletViewer": {
+    "$NewDocletDialog": {
         "#element": "div",
-        "@id": "DocletViewMask",
+        "@id": "NewDocletDialogMask",
         "position": "absolute",
         "top": 0,
         "left": 0,
         "width": "100%",
         "height": "100%",
         "display": "none",
+        "justify-content": "center",
+        "align-items": "center",
+        "background": "rgba(0,0,0,0.25)",
+        "z-index": 20,
+        "#": ["$NewDocletDialog"],
+
+        "$NewDocletDialog": {
+            "#element": "div",
+            "@id": "NewDocletDialog",
+            "width": "80%",
+            "max-height": "70%",
+            "display": "flex",
+            "flex-direction": "column",
+            "padding": "0.6em",
+            "box-sizing": "border-box",
+            "background": "white",
+            "border": "1px solid gray",
+            "#": ["$NewDocletDialogTitle", "$NewDocletDialogList", "$NewDocletDialogButtons"],
+
+            "$NewDocletDialogTitle": {
+                "#element": "div",
+                "#content": "Choose topic for new doclet",
+                "text-align": "left",
+                "font-weight": "bold",
+                "padding-bottom": "0.5em"
+            },
+
+            "$NewDocletDialogList": {
+                "#element": "div",
+                "@id": "NewDocletDialogList",
+                "flex": 1,
+                "min-height": 0,
+                "overflow-y": "auto",
+                "text-align": "left",
+                "#": ["$NewTopicItemTemplate"],
+
+                "$NewTopicItemTemplate": {
+                    "#element": "div",
+                    "@id": "NewTopicItemTemplate",
+                    "display": "none",
+                    "#": ["$NewTopicItemTemplateRow"],
+
+                    "$NewTopicItemTemplateRow": {
+                        "#element": "div",
+                        "@id": "NewTopicItem-__SEQ__",
+                        "display": "flex",
+                        "align-items": "center",
+                        "gap": "0.5em",
+                        "padding": "0.2em 0",
+                        "#": ["$NewTopicItemTemplateRadio", "$NewTopicItemTemplateName"],
+
+                        "$NewTopicItemTemplateRadio": {
+                            "#element": "input",
+                            "@id": "NewTopicRadio-__SEQ__",
+                            "@type": "radio",
+                            "@name": "new-doclet-topic",
+                            "@value": "__VALUE__"
+                        },
+
+                        "$NewTopicItemTemplateName": {
+                            "#element": "span",
+                            "#content": "__TEXT__"
+                        }
+                    }
+                }
+            },
+
+            "$NewDocletDialogButtons": {
+                "#element": "div",
+                "display": "flex",
+                "flex-direction": "row",
+                "gap": "0.5em",
+                "padding-top": "0.6em",
+                "#": ["$NewDocletCancelButton", "$NewDocletCreateButton"],
+
+                "$NewDocletCancelButton": {
+                    "#element": "button",
+                    "@id": "NewDocletCancelButton",
+                    "#content": "Cancel",
+                    "flex": 1,
+                    "padding": "0.3em 0.5em",
+                    "cursor": "pointer"
+                },
+
+                "$NewDocletCreateButton": {
+                    "#element": "button",
+                    "@id": "NewDocletCreateButton",
+                    "#content": "Create",
+                    "flex": 1,
+                    "padding": "0.3em 0.5em",
+                    "cursor": "pointer"
+                }
+            }
+        }
+    },
+
+    "$DocletViewer": {
+        "#element": "div",
+        "@id": "DocletViewMask",
+        "position": "fixed",
+        "top": 0,
+        "left": 0,
+        "width": "100vw",
+        "height": "100dvh",
+        "display": "none",
         "justify-content": "stretch",
         "align-items": "stretch",
+        "overflow": "hidden",
+        "overscroll-behavior": "none",
         "background": "rgba(0,0,0,0.25)",
         "z-index": 21,
         "#": ["$DocletViewDialog"],
@@ -279,15 +456,17 @@
             "#element": "div",
             "@id": "DocletViewDialog",
             "width": "100%",
-            "height": "100%",
-            "max-height": "100%",
+            "height": "100dvh",
+            "max-height": "100dvh",
             "display": "flex",
             "flex-direction": "column",
             "padding": "0.6em",
             "box-sizing": "border-box",
+            "overflow": "hidden",
+            "overscroll-behavior": "none",
             "background": "white",
             "border": "0",
-            "#": ["$DocletViewContent", "$DocletViewButtonsRow"],
+            "#": ["$DocletViewContent", "$DocletEditTextarea", "$DocletViewButtonsRow"],
 
             "$DocletViewContent": {
                 "#element": "div",
@@ -296,8 +475,24 @@
                 "flex": 1,
                 "min-height": 0,
                 "overflow-y": "auto",
+                "overscroll-behavior-y": "contain",
                 "text-align": "left",
                 "padding": "0.2em"
+            },
+
+            "$DocletEditTextarea": {
+                "#element": "textarea",
+                "@id": "DocletEditTextarea",
+                "display": "none",
+                "flex": 1,
+                "min-height": 0,
+                "width": "100%",
+                "box-sizing": "border-box",
+                "resize": "none",
+                "overflow-y": "auto",
+                "overscroll-behavior-y": "contain",
+                "font-family": "monospace",
+                "line-height": "1.35"
             },
 
             "$DocletViewButtonsRow": {
@@ -306,7 +501,7 @@
                 "flex-direction": "row",
                 "gap": "0.5em",
                 "padding-top": "0.6em",
-                "#": ["$DocletViewEditButton", "$DocletViewNewButton", "$DocletViewSaveButton", "$DocletViewCloseButton"],
+                "#": ["$DocletViewEditButton", "$DocletViewDeleteButton", "$DocletViewSaveButton", "$DocletViewCloseButton"],
 
                 "$DocletViewEditButton": {
                     "#element": "button",
@@ -318,10 +513,10 @@
                     "cursor": "pointer"
                 },
 
-                "$DocletViewNewButton": {
+                "$DocletViewDeleteButton": {
                     "#element": "button",
-                    "@id": "DocletViewNewButton",
-                    "#content": "New",
+                    "@id": "DocletViewDeleteButton",
+                    "#content": "Delete",
                     "@disabled": "disabled",
                     "flex": 1,
                     "padding": "0.3em 0.5em",

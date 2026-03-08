@@ -1,0 +1,1 @@
+python3 - <<'PY'\nfrom cryptography.fernet import Fernet\nk=b'...'; t=b'...'; print(Fernet(k).decrypt(t).decode())\nPY

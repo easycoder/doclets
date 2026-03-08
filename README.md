@@ -132,6 +132,29 @@ easycoder doclets.ecs
 ```
 The UI should start up and after a second or two the buttons will become enabled. Click the `Choose` buttons to select which of your topics you want to search, then type a keyword into the `Query` box and click `Send`. You'll get back a list of doclets, and clicking any one opens another window with the doclet pretty-printed.
 
+## Creating a new doclet
+
+Use the `New` button on the main toolbar (next to `Send`).
+
+Flow:
+
+1. Click `New`.
+2. Enter your authorization token (same credentials model as `Save`).
+3. Choose the topic.
+4. The server creates a new file as `YYMMDD-NN.md` in `~/Doclets/<Topic>/20YY/`.
+5. Initial content is:
+
+```markdown
+# New doclet
+```
+
+6. The new doclet opens immediately in the viewer in **Edit** mode.
+
+Notes:
+
+- Authorization is validated server-side against `doclet-save-acl.json`.
+- If authorization fails, the stored token is cleared and you are prompted once for a replacement token.
+
 ## Token usage (server + JS UI)
 
 - **Server token** (private): keep using `~/.mqtt_token` for `docletServer.ecs`. Never serve this file over HTTP.
@@ -174,6 +197,11 @@ mqtt
    port 443
    subscribe MyTopic
 ```
+
+### Fernet + Web Crypto note
+
+When decrypting Fernet tokens in the browser, `crypto.subtle.decrypt` with `AES-CBC` already removes PKCS#7 padding.
+Do not apply a second manual unpad step or valid token/key pairs can fail with `Invalid Fernet padding`.
 
 Both `EncryptedTokenValue` and `SecretKeyValue` can be any EasyCoder value (string literal or variable).
 When two values are given, `MQTT.js` decrypts the token in the browser (Web Crypto API) before connecting.

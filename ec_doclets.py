@@ -3,9 +3,17 @@
 Doclet Search and Management for EasyCoder
 """
 import sys
+import json
 import re
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional, Any, Union
+
+try:
+    import requests
+except Exception:
+    requests = None
 
 class DocletManager():
     def __init__(self, doclets_dir: str = None, ollama_url: str = "http://localhost:11434"): # type: ignore
@@ -108,12 +116,103 @@ class DocletManager():
             if filename == fname:
                 return (filepath, filename, subject)
         return None
+
+    def _normalize_display_name(self, display_name: str) -> Optional[str]:
+        text = (display_name or '').strip()
+        if '/' not in text:
+            return None
+        topic, filename = text.split('/', 1)
+        topic = topic.strip()
+        filename = filename.strip()
+        if not re.match(r'^[A-Za-z0-9._-]+$', topic):
+            return None
+        if not re.match(r'^\d{6}-\d{2}\.md$', filename):
+            return None
+        return f"{topic}/{filename}"
+
+    def _canonical_doclet_path_from_display_name(self, display_name: str) -> Optional[Path]:
+        """Map TOPIC/YYMMDD-NN.md to ~/Doclets/TOPIC/20YY/YYMMDD-NN.md."""
+        normalized = self._normalize_display_name(display_name)
+        if normalized is None:
+            return None
+        topic, filename = normalized.split('/', 1)
+        year = f"20{filename[:2]}"
+        return Path.home() / 'Doclets' / topic / year / filename
+
+    def _resolve_display_filename_global(self, display_name: str) -> Optional[Path]:
+        """Resolve display filename independent of currently scoped doclet dirs."""
+        normalized = self._normalize_display_name(display_name)
+        if normalized is None:
+            return None
+
+        topic, filename = normalized.split('/', 1)
+        year = f"20{filename[:2]}"
+        home_doclets = Path.home() / 'Doclets'
+
+        # Exact topic match first.
+        exact = home_doclets / topic / year / filename
+        if exact.exists():
+            return exact
+
+        # Case-insensitive topic match (Linux FS is case-sensitive).
+        try:
+            for topic_dir in home_doclets.iterdir():
+                if topic_dir.is_dir() and topic_dir.name.lower() == topic.lower():
+                    candidate = topic_dir / year / filename
+                    if candidate.exists():
+                        return candidate
+        except Exception:
+            pass
+
+        # Final fallback: find matching filename in the expected year under any topic.
+        try:
+            for candidate in home_doclets.glob(f"*/{year}/{filename}"):
+                if candidate.exists():
+                    return candidate
+        except Exception:
+            pass
+        return None
+
+    def _is_in_home_doclets(self, path: Path) -> bool:
+        try:
+            path.resolve().relative_to((Path.home() / 'Doclets').resolve())
+            return True
+        except Exception:
+            return False
+
+    def _is_in_doclet_roots(self, path: Path) -> bool:
+        try:
+            resolved = path.resolve()
+        except Exception:
+            return False
+        for base_dir in self.doclets_dirs:
+            try:
+                resolved.relative_to(base_dir.resolve())
+                return True
+            except Exception:
+                continue
+        return False
     
     def _resolve_display_filename(self, display_name: str) -> Optional[Path]:
         """Resolve a display filename like 'RBR/260102-01.md' back to a Path."""
+        normalized = self._normalize_display_name(display_name)
+        if normalized is None:
+            return None
+
+        # Fast path: canonical storage location. This avoids misses when current
+        # search directories are scoped to a subset of topics.
+        canonical = self._canonical_doclet_path_from_display_name(normalized)
+        if canonical is not None and canonical.exists():
+            return canonical
+
+        # Try resolution independent of current scoped search roots.
+        global_match = self._resolve_display_filename_global(normalized)
+        if global_match is not None:
+            return global_match
+
         for filepath, filename, _subject in self.find_all_doclets():
             disp = f"{self._get_base_dir_label(filepath)}/{filename}" if self._get_base_dir_label(filepath) else filename
-            if disp == display_name:
+            if disp == normalized:
                 return filepath
         return None
 
@@ -122,14 +221,37 @@ class DocletManager():
         candidate: Optional[Path] = None
 
         if isinstance(filepath, Path):
-            candidate = filepath
-        else:
-            path_obj = Path(filepath)
-            if path_obj.exists():
-                candidate = path_obj
+            if filepath.is_absolute() and filepath.exists() and (self._is_in_doclet_roots(filepath) or self._is_in_home_doclets(filepath)):
+                candidate = filepath
             else:
-                # Try resolving display filename (e.g., RBR/260102-01.md)
-                candidate = self._resolve_display_filename(filepath)
+                candidate = self._resolve_display_filename(str(filepath))
+        else:
+            filepath_text = (filepath or '').strip()
+            if '/' in filepath_text:
+                # Resolve display filename first (e.g., RBR/260102-01.md)
+                # to avoid accidental CWD-relative matches.
+                normalized = self._normalize_display_name(filepath_text)
+                if normalized is not None:
+                    candidate = self._resolve_display_filename(normalized)
+                    # Brief retry for occasional create->view timing gaps.
+                    if candidate is None:
+                        for _ in range(10):
+                            time.sleep(0.05)
+                            candidate = self._resolve_display_filename_global(normalized)
+                            if candidate is not None:
+                                break
+                if candidate is None:
+                    path_obj = Path(filepath_text)
+                    if path_obj.is_absolute() and path_obj.exists() and (self._is_in_doclet_roots(path_obj) or self._is_in_home_doclets(path_obj)):
+                        candidate = path_obj
+            else:
+                path_obj = Path(filepath_text)
+                if path_obj.is_absolute() and path_obj.exists() and (self._is_in_doclet_roots(path_obj) or self._is_in_home_doclets(path_obj)):
+                    candidate = path_obj
+                else:
+                    record = self.get_doclet_by_filename(filepath_text)
+                    if record is not None:
+                        candidate = record[0]
 
         if candidate is None:
             return f"Error reading file: could not resolve path for {filepath}"
@@ -139,6 +261,248 @@ class DocletManager():
                 return f.read()
         except Exception as e:
             return f"Error reading file {candidate}: {e}"
+
+    def _load_save_acl(self, acl_path: Union[Path, str]) -> Dict[str, Any]:
+        path = Path(acl_path).expanduser()
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        if not path.exists():
+            return {"entries": []}
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return {"entries": []}
+        if 'entries' not in data or not isinstance(data['entries'], list):
+            return {"entries": []}
+        return data
+
+    def _resolve_doclet_save_path(self, display_name: str) -> Optional[Path]:
+        display_name = self._normalize_display_name(display_name) or ''
+        if not display_name:
+            return None
+
+        # Existing doclet path
+        existing = self._resolve_display_filename(display_name)
+        if existing is not None:
+            return existing
+
+        # New doclet canonical path.
+        return self._canonical_doclet_path_from_display_name(display_name)
+
+    def save_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = 'doclet-save-acl.json') -> str:
+        first_newline = payload.find('\n')
+        if first_newline < 0:
+            return 'Save failed: invalid payload'
+
+        token = payload[:first_newline].strip()
+        remainder = payload[first_newline + 1:]
+        second_newline = remainder.find('\n')
+        if second_newline < 0:
+            return 'Save failed: invalid payload'
+
+        doclet_name = remainder[:second_newline].strip()
+        normalized_doclet_name = self._normalize_display_name(doclet_name)
+        if normalized_doclet_name is None:
+            return 'Save failed: invalid doclet name'
+        doclet_name = normalized_doclet_name
+        doclet_content = remainder[second_newline + 1:]
+
+        if '/' not in doclet_name:
+            return 'Save failed: invalid doclet name'
+        topic = doclet_name.split('/', 1)[0]
+
+        acl = self._load_save_acl(acl_path)
+        entries = acl.get('entries', [])
+        allowed = False
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get('token') != token:
+                continue
+            topics = entry.get('topics', [])
+            if isinstance(topics, list) and ('*' in topics or topic in topics):
+                allowed = True
+                break
+
+        if not allowed:
+            return 'Save failed: unauthorized'
+
+        save_path = self._resolve_doclet_save_path(doclet_name)
+        if save_path is None:
+            return 'Save failed: invalid doclet name'
+
+        try:
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(save_path, 'w', encoding='utf-8') as f:
+                f.write(doclet_content)
+            return f'Saved {doclet_name}'
+        except Exception:
+            return f'Save failed for {doclet_name}'
+
+    def _is_token_allowed_for_topic(self, token: str, topic: str, acl_path: Union[Path, str] = 'doclet-save-acl.json') -> bool:
+        acl = self._load_save_acl(acl_path)
+        entries = acl.get('entries', [])
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get('token') != token:
+                continue
+            topics = entry.get('topics', [])
+            if isinstance(topics, list) and ('*' in topics or topic in topics):
+                return True
+        return False
+
+    def create_new_doclet(self, topic: str) -> str:
+        topic = (topic or '').strip()
+        if not re.match(r'^[A-Za-z0-9._-]+$', topic):
+            return 'Create failed: invalid topic'
+
+        now = datetime.now()
+        yy = now.strftime('%y')
+        yyyymmdd = now.strftime('%y%m%d')
+        year_dir = Path.home() / 'Doclets' / topic / f'20{yy}'
+
+        try:
+            year_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            return 'Create failed: could not create folder'
+
+        max_seq = -1
+        for candidate in year_dir.glob(f'{yyyymmdd}-*.md'):
+            match = re.match(rf'^{yyyymmdd}-(\d\d)\.md$', candidate.name)
+            if match:
+                seq = int(match.group(1))
+                if seq > max_seq:
+                    max_seq = seq
+
+        next_seq = max_seq + 1
+        while next_seq <= 99:
+            filename = f'{yyyymmdd}-{next_seq:02d}.md'
+            path = year_dir / filename
+            if not path.exists():
+                break
+            next_seq += 1
+
+        if next_seq > 99:
+            return 'Create failed: too many doclets for today'
+
+        filename = f'{yyyymmdd}-{next_seq:02d}.md'
+        path = year_dir / filename
+        display_name = f'{topic}/{filename}'
+        default_content = '# New doclet\n'
+
+        try:
+            with open(path, 'x', encoding='utf-8') as f:
+                f.write(default_content)
+            return f'Created {display_name}'
+        except FileExistsError:
+            return 'Create failed: filename collision, retry'
+        except Exception:
+            return f'Create failed for {display_name}'
+
+    def create_new_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = 'doclet-save-acl.json') -> str:
+        first_newline = payload.find('\n')
+        if first_newline < 0:
+            return 'Create failed: invalid payload'
+
+        token = payload[:first_newline].strip()
+        remainder = payload[first_newline + 1:]
+        second_newline = remainder.find('\n')
+        if second_newline < 0:
+            topic = remainder.strip()
+            request_id = ''
+        else:
+            topic = remainder[:second_newline].strip()
+            request_id = remainder[second_newline + 1:].strip()
+
+        if not topic:
+            return 'Create failed: invalid topic'
+
+        if request_id and not re.match(r'^[A-Za-z0-9._-]{1,64}$', request_id):
+            request_id = ''
+
+        if not self._is_token_allowed_for_topic(token, topic, acl_path):
+            return 'Create failed: unauthorized'
+
+        stamp_path: Optional[Path] = None
+        has_stamp_lock = False
+        if request_id:
+            now = datetime.now()
+            yy = now.strftime('%y')
+            yyyymmdd = now.strftime('%y%m%d')
+            year_dir = Path.home() / 'Doclets' / topic / f'20{yy}'
+            try:
+                year_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                return 'Create failed: could not create folder'
+
+            stamp_path = year_dir / f'.newreq-{yyyymmdd}-{request_id}'
+            try:
+                with open(stamp_path, 'x', encoding='utf-8') as f:
+                    f.write('PENDING\n')
+                has_stamp_lock = True
+            except FileExistsError:
+                has_stamp_lock = False
+
+            if not has_stamp_lock:
+                for _ in range(20):
+                    try:
+                        text = stamp_path.read_text(encoding='utf-8').strip()
+                    except Exception:
+                        text = ''
+                    if text.startswith('Created '):
+                        display_name = text.replace('Created ', '', 1).strip()
+                        expected_path = self._resolve_doclet_save_path(display_name)
+                        if expected_path is not None and expected_path.exists():
+                            return f'Created {display_name}'
+                    time.sleep(0.1)
+                return 'Create failed: request busy, retry'
+
+        result = self.create_new_doclet(topic)
+        if stamp_path is not None and has_stamp_lock:
+            if result.startswith('Created '):
+                try:
+                    stamp_path.write_text(result + '\n', encoding='utf-8')
+                except Exception:
+                    pass
+            else:
+                try:
+                    stamp_path.unlink()
+                except Exception:
+                    pass
+
+        return result
+
+    def delete_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = 'doclet-save-acl.json') -> str:
+        first_newline = payload.find('\n')
+        if first_newline < 0:
+            return 'Delete failed: invalid payload'
+
+        token = payload[:first_newline].strip()
+        doclet_name = payload[first_newline + 1:].strip()
+        normalized_doclet_name = self._normalize_display_name(doclet_name)
+        if normalized_doclet_name is None:
+            return 'Delete failed: invalid doclet name'
+        doclet_name = normalized_doclet_name
+
+        if '/' not in doclet_name:
+            return 'Delete failed: invalid doclet name'
+        topic = doclet_name.split('/', 1)[0]
+
+        if not self._is_token_allowed_for_topic(token, topic, acl_path):
+            return 'Delete failed: unauthorized'
+
+        target = self._resolve_display_filename(doclet_name)
+        if target is None:
+            return 'Delete failed: invalid doclet name'
+
+        try:
+            target.unlink()
+            return f'Deleted {doclet_name}'
+        except FileNotFoundError:
+            return f'Delete failed: not found {doclet_name}'
+        except Exception:
+            return f'Delete failed for {doclet_name}'
     
     def build_search_context(self, doclets: List[Tuple[Path, str, str]]) -> str:
         """Build a context string for the LLM with all doclet metadata
@@ -167,6 +531,9 @@ class DocletManager():
         """
         if model is None:
             model = self.model
+
+        if requests is None:
+            return "Error querying LLM: requests is not installed"
             
         try:
             response = requests.post(
@@ -460,14 +827,14 @@ Return matching filenames:"""
 ###############################################################################
 # The Doclets compiler and runtime handlers
 
-from easycoder import Handler, ECValue, ECDictionary, ECList
+from easycoder import Handler, ECValue, ECDictionary, ECList, ECVariable
 
 class Doclets(Handler):
 
     def __init__(self, compiler):
         super().__init__(compiler)
         self.spoke = None
-        print ("Doclets handler initialized")
+        print(f"Doclets handler initialized from {__file__}")
 
     def getName(self):
         return 'doclets'
@@ -476,12 +843,118 @@ class Doclets(Handler):
     # Keyword handlers
 
     def k_doclets(self, command):
-        if self.nextIs('init'):
+        mode = self.peek()
+        if mode == 'init':
+            self.nextToken()
             self.add(command)
             return True
+        if mode in ('query', 'view', 'save', 'new', 'delete'):
+            self.nextToken()
+            command['mode'] = mode
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                if mode == 'query':
+                    self.checkObjectType(record, ECList)
+                else:
+                    self.checkObjectType(record, ECVariable)
+                command['target'] = record['name']
+                self.skip('from')
+                if self.nextIsSymbol():
+                    record = self.getSymbolRecord()
+                    self.checkObjectType(record, ECDictionary())
+                    command['message'] = record['name']
+                    self.add(command)
+                    return True
         return False
     
     def r_doclets(self, command):
+        if 'mode' in command:
+            if not hasattr(self.program, 'doclets_manager'):
+                raise RuntimeError(self.program, 'Doclets manager not initialized')
+
+            mode = command['mode']
+            target = self.getObject(self.getVariable(command['target']))
+            message = self.getObject(self.getVariable(command['message'])).getValue()
+            results = ''
+
+            if mode == 'query':
+                query = message.get('message', '')
+                if isinstance(query, bytes):
+                    query = query.decode('utf-8', errors='replace')
+                p = query.find('|')
+                topics = query[:p] if p != -1 else ''
+                query = query[p+1:] if p != -1 else ''
+
+                if topics:
+                    self.program.doclets_manager.set_doclets_dirs(topics)
+
+                use_llm = False
+                if query.startswith('LLM:'):
+                    use_llm = True
+                    query = query[4:].strip()
+
+                print(f'query: {query}, topics: {topics}, use_llm: {use_llm}')
+
+                results = self.program.doclets_manager.search_data(
+                    query=query,
+                    include_content=False,
+                    use_llm=use_llm,
+                    include_summary=False,
+                    return_meta=False
+                )
+
+                topics_dict = {}
+                for r in results:
+                    display_name = r.get('display_filename', '') # type: ignore
+                    topic = display_name.split('/')[0].lower() if '/' in display_name else display_name.lower()
+                    if topic not in topics_dict:
+                        topics_dict[topic] = []
+                    topics_dict[topic].append(r)
+
+                sorted_results = []
+                for topic in sorted(topics_dict.keys()):
+                    topic_group = sorted(topics_dict[topic], key=lambda r: r.get('filename', ''), reverse=True)
+                    sorted_results.extend(topic_group)
+                results = sorted_results
+
+                res = []
+                for r in results:
+                    if 'content' in r:
+                        res.append(r.get('content')) # type: ignore
+                    else:
+                        display_name = r.get('display_filename', '')
+                        subject = r.get('subject', '')
+                        res.append(f"{display_name}: {subject}") # type: ignore
+                results = res
+
+            elif mode == 'view':
+                results = self.program.doclets_manager.read_doclet_content(message['message'])
+
+            elif mode == 'save':
+                payload = message.get('message', '')
+                if isinstance(payload, bytes):
+                    payload = payload.decode('utf-8', errors='replace')
+                results = self.program.doclets_manager.save_doclet_with_acl(payload)
+
+            elif mode == 'new':
+                payload = message.get('message', '')
+                if isinstance(payload, bytes):
+                    payload = payload.decode('utf-8', errors='replace')
+                results = self.program.doclets_manager.create_new_doclet_with_acl(payload)
+
+            elif mode == 'delete':
+                payload = message.get('message', '')
+                if isinstance(payload, bytes):
+                    payload = payload.decode('utf-8', errors='replace')
+                results = self.program.doclets_manager.delete_doclet_with_acl(payload)
+
+            if isinstance(results, str):
+                results = ECValue(type=str, content=results)
+            elif isinstance(results, list):
+                results = ECValue(type=list, content=results)
+            target.setValue(results)
+            return self.nextPC()
+
         # Use default ollama_url if not provided
         ollama_url = command.get('ollama_url', 'http://localhost:11434')
         doclets_manager = DocletManager(
@@ -512,6 +985,7 @@ class Doclets(Handler):
             raise RuntimeError(self.program, 'Doclets manager not initialized')
         target = self.getObject(self.getVariable(command['target']))
         message = self.getObject(self.getVariable(command['message'])).getValue()
+        results = ''
         
         action = message.get('action', '')
         
@@ -585,6 +1059,23 @@ class Doclets(Handler):
             #     raise RuntimeError(self.program, "No 'name' provided for view action")
             # Read doclet content directly by name
             results = self.program.doclets_manager.read_doclet_content(message['message'])
+        elif action == 'save':
+            payload = message.get('message', '')
+            if isinstance(payload, bytes):
+                payload = payload.decode('utf-8', errors='replace')
+            results = self.program.doclets_manager.save_doclet_with_acl(payload)
+        elif action == 'new':
+            payload = message.get('message', '')
+            if isinstance(payload, bytes):
+                payload = payload.decode('utf-8', errors='replace')
+            results = self.program.doclets_manager.create_new_doclet_with_acl(payload)
+        elif action == 'delete':
+            payload = message.get('message', '')
+            if isinstance(payload, bytes):
+                payload = payload.decode('utf-8', errors='replace')
+            results = self.program.doclets_manager.delete_doclet_with_acl(payload)
+        else:
+            results = f'Error: unsupported doclets action "{action}"'
         
         # Convert results to ECValue
         if isinstance(results, str):

@@ -3,7 +3,7 @@
     script DocletServer
 
     use mqtt
-    use plugin Doclets from ec_doclets
+    use plugin Doclets from /home/graham/dev/doclets/ec_doclets.py
 
     topic ServerTopic
     topic SenderTopic
@@ -29,7 +29,7 @@
         exit
     end
     load FernetToken from `../.fernet_token`
-    print `Token is ` cat FernetToken
+!    print `Token is ` cat FernetToken
 
     ! Get the Flespi secret key
     if file `../.fernet_key` does not exist
@@ -38,7 +38,7 @@
         exit
     end
     load FernetKey from `../.fernet_key`
-    print `Key is ` cat FernetKey
+!    print `Key is ` cat FernetKey
 
     ! Get the user ID
     if file `~/.mqtt_userid` does not exist
@@ -81,6 +81,9 @@
             if Action is `topics` gosub to GetTopics
             else if Action is `query` gosub to DoQuery
             else if Action is `view` gosub to GetDoclet
+            else if Action is `save` gosub to HandleSaveViaPlugin
+            else if Action is `new` gosub to HandleNewViaPlugin
+            else if Action is `delete` gosub to HandleDeleteViaPlugin
         end
     end
     stop
@@ -93,7 +96,7 @@ GetTopics:
 
 ! Process a query
 DoQuery:
-    get doclet ResultList from ReceivedMessage
+    doclets query ResultList from ReceivedMessage
     if the count of ResultList is 0 log `No results`
     else log `Sending ` cat left 40 of ResultList
     put ResultList into MessageText
@@ -101,7 +104,22 @@ DoQuery:
 
 ! Get the content of a doclet
 GetDoclet:
-    get doclet MessageText from ReceivedMessage
+    doclets view MessageText from ReceivedMessage
+    go to SendReply
+
+! Save handling is delegated to ec_doclets.py (ACL + path validation + file write)
+HandleSaveViaPlugin:
+    doclets save MessageText from ReceivedMessage
+    go to SendReply
+
+! New doclet handling is delegated to ec_doclets.py
+HandleNewViaPlugin:
+    doclets new MessageText from ReceivedMessage
+    go to SendReply
+
+! Delete doclet handling is delegated to ec_doclets.py
+HandleDeleteViaPlugin:
+    doclets delete MessageText from ReceivedMessage
     go to SendReply
 
 ! Send a reply message
