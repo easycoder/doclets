@@ -1,10 +1,14 @@
 #!/bin/sh
 
-# This file goes in your ~/bin folder, assuming it's on your $PATH.
+# Put this launcher somewhere on your PATH (for example: ~/bin/docletServer).
+# The deployed server files live in ~/docletServer.
+
+DEPLOY_DIR="$HOME/docletServer"
 
 /usr/bin/pip install -U easycoder
-cd $HOME/bin
-/usr/bin/rm ec_doclets.py docletServer.ecs docletServer.py docletServer
+mkdir -p "$DEPLOY_DIR"
+cd "$DEPLOY_DIR" || exit 1
+/usr/bin/rm -f ec_doclets.py docletServer.ecs docletServer.py
 /usr/bin/echo 'Getting all files'
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/docletServer.py

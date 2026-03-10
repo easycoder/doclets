@@ -125,21 +125,21 @@
 !   Set up MQTT
 
     ! Get the Flespi token
-    if file `../.fernet_token` does not exist
+    if file `~/.fernet_token` does not exist
     begin
         print `No token could be found.`
         exit
     end
-    load FernetToken from `../.fernet_token`
+    load FernetToken from `~/.fernet_token`
     print `Token is ` cat FernetToken
 
     ! Get the Flespi secret key
-    if file `../.fernet_key` does not exist
+    if file `~/.fernet_key` does not exist
     begin
         print `No token could be found.`
         exit
     end
-    load FernetKey from `../.fernet_key`
+    load FernetKey from `~/.fernet_key`
     print `Key is ` cat FernetKey
 
     ! Get the server topic name
