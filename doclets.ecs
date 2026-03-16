@@ -17,6 +17,7 @@
     div TopicItemTemplateRow
     div NewDocletDialogMask
     div NewDocletDialogList
+    div NewTopicItem
     div NewTopicItemTemplate
     div NewTopicItemTemplateRow
     div DocletViewMask
@@ -215,6 +216,7 @@ SetupScreen:
     attach TopicItemTemplateRow to `TopicItem-__SEQ__`
     attach NewDocletDialogMask to `NewDocletDialogMask`
     attach NewDocletDialogList to `NewDocletDialogList`
+    attach NewTopicItem to `NewTopicItem-__SEQ__`
     attach NewTopicItemTemplate to `NewTopicItemTemplate`
     attach NewTopicItemTemplateRow to `NewTopicItem-__SEQ__`
     attach DocletViewMask to `DocletViewMask`
@@ -785,9 +787,12 @@ DocletViewNewClick:
     set content of NewDocletDialogList to TopicsMarkup
 
     set the elements of NewTopicRadio to json count of TopicsAvailable
+    set the elements of NewTopicItem to json count of TopicsAvailable
     put 0 into N
     while N is less than elements of NewTopicRadio
     begin
+        index NewTopicItem to N
+        attach NewTopicItem to `NewTopicItem-` cat N
         index NewTopicRadio to N
         attach NewTopicRadio to `NewTopicRadio-` cat N
         if N is 0
@@ -797,6 +802,8 @@ DocletViewNewClick:
         end
         add 1 to N
     end
+    put 0 into N
+    gosub to SyncNewTopicRadioState
     on change NewTopicRadio go to NewTopicRadioClick
 
     set style `display` of NewDocletDialogMask to `flex`
@@ -807,7 +814,32 @@ DocletViewNewClick:
 NewTopicRadioClick:
     put index of NewTopicRadio into N
     put element N of TopicsAvailable into NewDocletTopic
+    gosub to SyncNewTopicRadioState
     stop
+
+SyncNewTopicRadioState:
+    put 0 into P
+    while P is less than elements of NewTopicRadio
+    begin
+        index NewTopicRadio to P
+        index NewTopicItem to P
+        if P is N
+        begin
+            set attribute `checked` of NewTopicRadio
+            set style `background` of NewTopicItem to `#e7f2ff`
+            set style `border` of NewTopicItem to `1px solid #8ab4f8`
+            set style `border-radius` of NewTopicItem to `0.35em`
+        end
+        else
+        begin
+            remove attribute `checked` of NewTopicRadio
+            set style `background` of NewTopicItem to `transparent`
+            set style `border` of NewTopicItem to `1px solid transparent`
+            set style `border-radius` of NewTopicItem to `0.35em`
+        end
+        add 1 to P
+    end
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Cancel New doclet creation
