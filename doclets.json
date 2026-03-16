@@ -341,26 +341,19 @@
                     "#": ["$NewTopicItemTemplateRow"],
 
                     "$NewTopicItemTemplateRow": {
-                        "#element": "div",
-                        "@id": "NewTopicItem-__SEQ__",
-                        "display": "flex",
-                        "align-items": "center",
-                        "gap": "0.5em",
-                        "padding": "0.2em 0",
-                        "#": ["$NewTopicItemTemplateRadio", "$NewTopicItemTemplateName"],
-
-                        "$NewTopicItemTemplateRadio": {
-                            "#element": "input",
-                            "@id": "NewTopicRadio-__SEQ__",
-                            "@type": "radio",
-                            "@name": "new-doclet-topic",
-                            "@value": "__VALUE__"
-                        },
-
-                        "$NewTopicItemTemplateName": {
-                            "#element": "span",
-                            "#content": "__TEXT__"
-                        }
+                        "#element": "button",
+                        "@id": "NewTopicButton-__SEQ__",
+                        "#content": "__TEXT__",
+                        "display": "block",
+                        "width": "100%",
+                        "text-align": "left",
+                        "padding": "0.55em 0.65em",
+                        "margin": "0 0 0.35em 0",
+                        "box-sizing": "border-box",
+                        "border": "1px solid #8ab4f8",
+                        "border-radius": "0.35em",
+                        "background": "#f5f9ff",
+                        "cursor": "pointer"
                     }
                 }
             },
@@ -371,21 +364,12 @@
                 "flex-direction": "row",
                 "gap": "0.5em",
                 "padding-top": "0.6em",
-                "#": ["$NewDocletCancelButton", "$NewDocletCreateButton"],
+                "#": ["$NewDocletCancelButton"],
 
                 "$NewDocletCancelButton": {
                     "#element": "button",
                     "@id": "NewDocletCancelButton",
                     "#content": "Cancel",
-                    "flex": 1,
-                    "padding": "0.3em 0.5em",
-                    "cursor": "pointer"
-                },
-
-                "$NewDocletCreateButton": {
-                    "#element": "button",
-                    "@id": "NewDocletCreateButton",
-                    "#content": "Create",
                     "flex": 1,
                     "padding": "0.3em 0.5em",
                     "cursor": "pointer"

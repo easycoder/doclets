@@ -17,9 +17,7 @@
     div TopicItemTemplateRow
     div NewDocletDialogMask
     div NewDocletDialogList
-    div NewTopicItem
     div NewTopicItemTemplate
-    div NewTopicItemTemplateRow
     div DocletViewMask
     div DocletViewContent
     textarea DocletEditText
@@ -34,12 +32,11 @@
     button DocletViewDelete
     button DocletViewSave
     button DocletViewClose
-    button NewDocletCreate
     button NewDocletCancel
+    button NewTopicButton
     button DocletButton
     input QueryInput
     input TopicCheckbox
-    input NewTopicRadio
 
     topic MyTopic
     topic ServerTopic
@@ -216,9 +213,8 @@ SetupScreen:
     attach TopicItemTemplateRow to `TopicItem-__SEQ__`
     attach NewDocletDialogMask to `NewDocletDialogMask`
     attach NewDocletDialogList to `NewDocletDialogList`
-    attach NewTopicItem to `NewTopicItem-__SEQ__`
     attach NewTopicItemTemplate to `NewTopicItemTemplate`
-    attach NewTopicItemTemplateRow to `NewTopicItem-__SEQ__`
+    attach NewTopicButton to `NewTopicButton-__SEQ__`
     attach DocletViewMask to `DocletViewMask`
     attach DocletViewContent to `DocletViewContent`
     attach DocletEditText to `DocletEditTextarea`
@@ -233,7 +229,6 @@ SetupScreen:
     attach DocletViewDelete to `DocletViewDeleteButton`
     attach DocletViewSave to `DocletViewSaveButton`
     attach DocletViewClose to `DocletViewCloseButton`
-    attach NewDocletCreate to `NewDocletCreateButton`
     attach NewDocletCancel to `NewDocletCancelButton`
 
     on click TitleBanner go to TitleBannerClick
@@ -247,7 +242,6 @@ SetupScreen:
     on click DocletViewDelete go to DocletViewDeleteClick
     on click DocletViewSave go to DocletViewSaveClick
     on click DocletViewClose go to DocletViewCloseClick
-    on click NewDocletCreate go to NewDocletCreateClick
     on click NewDocletCancel go to NewDocletCancelClick
     on change DocletEditText go to DocletEditChanged
 
@@ -454,7 +448,6 @@ WaitForReply:
             begin
                 clear NewInFlight
                 clear NewRequestID
-                enable NewDocletCreate
                 enable NewDocletCancel
             end
             stop
@@ -564,7 +557,6 @@ ProcessMessage:
     else if State is `new`
     begin
         clear NewInFlight
-        enable NewDocletCreate
         enable NewDocletCancel
         enable QueryInput
         put ReceivedMessage into MessageText
@@ -769,7 +761,6 @@ DocletViewNewClick:
 
     clear NewInFlight
     clear NewRequestID
-    enable NewDocletCreate
     enable NewDocletCancel
 
     put empty into TopicsMarkup
@@ -786,67 +777,32 @@ DocletViewNewClick:
     end
     set content of NewDocletDialogList to TopicsMarkup
 
-    set the elements of NewTopicRadio to json count of TopicsAvailable
-    set the elements of NewTopicItem to json count of TopicsAvailable
+    set the elements of NewTopicButton to json count of TopicsAvailable
     put 0 into N
-    while N is less than elements of NewTopicRadio
+    while N is less than elements of NewTopicButton
     begin
-        index NewTopicItem to N
-        attach NewTopicItem to `NewTopicItem-` cat N
-        index NewTopicRadio to N
-        attach NewTopicRadio to `NewTopicRadio-` cat N
-        if N is 0
-        begin
-            set attribute `checked` of NewTopicRadio
-            put element N of TopicsAvailable into NewDocletTopic
-        end
+        index NewTopicButton to N
+        attach NewTopicButton to `NewTopicButton-` cat N
         add 1 to N
     end
-    put 0 into N
-    gosub to SyncNewTopicRadioState
-    on change NewTopicRadio go to NewTopicRadioClick
+    on click NewTopicButton go to NewTopicButtonClick
 
     set style `display` of NewDocletDialogMask to `flex`
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Track which topic is selected in the New doclet dialog
-NewTopicRadioClick:
-    put index of NewTopicRadio into N
+!   Create immediately when a topic button is tapped
+NewTopicButtonClick:
+    if NewInFlight stop
+    put index of NewTopicButton into N
     put element N of TopicsAvailable into NewDocletTopic
-    gosub to SyncNewTopicRadioState
-    stop
-
-SyncNewTopicRadioState:
-    put 0 into P
-    while P is less than elements of NewTopicRadio
-    begin
-        index NewTopicRadio to P
-        index NewTopicItem to P
-        if P is N
-        begin
-            set attribute `checked` of NewTopicRadio
-            set style `background` of NewTopicItem to `#e7f2ff`
-            set style `border` of NewTopicItem to `1px solid #8ab4f8`
-            set style `border-radius` of NewTopicItem to `0.35em`
-        end
-        else
-        begin
-            remove attribute `checked` of NewTopicRadio
-            set style `background` of NewTopicItem to `transparent`
-            set style `border` of NewTopicItem to `1px solid transparent`
-            set style `border-radius` of NewTopicItem to `0.35em`
-        end
-        add 1 to P
-    end
-    return
+    go to NewDocletCreateClick
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Cancel New doclet creation
 NewDocletCancelClick:
     clear NewInFlight
     clear NewRequestID
-    enable NewDocletCreate
     enable NewDocletCancel
     set style `display` of NewDocletDialogMask to `none`
     stop
@@ -866,7 +822,6 @@ NewDocletCreateClick:
     end
     put `new-` cat random 999999999 into NewRequestID
     set NewInFlight
-    disable NewDocletCreate
     disable NewDocletCancel
     set style `display` of NewDocletDialogMask to `none`
     put 0 into NewRetry
