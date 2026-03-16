@@ -797,7 +797,7 @@ DocletViewNewClick:
         end
         add 1 to N
     end
-    on click NewTopicRadio go to NewTopicRadioClick
+    on change NewTopicRadio go to NewTopicRadioClick
 
     set style `display` of NewDocletDialogMask to `flex`
     stop
