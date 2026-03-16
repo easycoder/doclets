@@ -74,6 +74,7 @@
     variable AutoStartEdit
     variable NewInFlight
     variable NewRequestID
+    variable NewTopicButtonLabel
     variable H
     variable DbgTapCount
     variable DbgLastTap
@@ -448,6 +449,7 @@ WaitForReply:
             begin
                 clear NewInFlight
                 clear NewRequestID
+                gosub to ResetNewTopicButtons
                 enable NewDocletCancel
             end
             stop
@@ -557,6 +559,7 @@ ProcessMessage:
     else if State is `new`
     begin
         clear NewInFlight
+        gosub to ResetNewTopicButtons
         enable NewDocletCancel
         enable QueryInput
         put ReceivedMessage into MessageText
@@ -783,6 +786,10 @@ DocletViewNewClick:
     begin
         index NewTopicButton to N
         attach NewTopicButton to `NewTopicButton-` cat N
+        put element N of TopicsAvailable into NewTopicButtonLabel
+        set text of NewTopicButton to NewTopicButtonLabel
+        enable NewTopicButton
+        set style `opacity` of NewTopicButton to `1`
         add 1 to N
     end
     on click NewTopicButton go to NewTopicButtonClick
@@ -796,6 +803,23 @@ NewTopicButtonClick:
     if NewInFlight stop
     put index of NewTopicButton into N
     put element N of TopicsAvailable into NewDocletTopic
+    put 0 into P
+    while P is less than elements of NewTopicButton
+    begin
+        index NewTopicButton to P
+        disable NewTopicButton
+        if P is N
+        begin
+            set text of NewTopicButton to `Creating...`
+            set style `opacity` of NewTopicButton to `1`
+        end
+        else
+        begin
+            set style `opacity` of NewTopicButton to `0.65`
+        end
+        add 1 to P
+    end
+    disable NewDocletCancel
     go to NewDocletCreateClick
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -803,9 +827,23 @@ NewTopicButtonClick:
 NewDocletCancelClick:
     clear NewInFlight
     clear NewRequestID
+    gosub to ResetNewTopicButtons
     enable NewDocletCancel
     set style `display` of NewDocletDialogMask to `none`
     stop
+
+ResetNewTopicButtons:
+    put 0 into P
+    while P is less than elements of NewTopicButton
+    begin
+        index NewTopicButton to P
+        put element P of TopicsAvailable into NewTopicButtonLabel
+        set text of NewTopicButton to NewTopicButtonLabel
+        enable NewTopicButton
+        set style `opacity` of NewTopicButton to `1`
+        add 1 to P
+    end
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Create a New doclet in the selected topic
@@ -823,7 +861,6 @@ NewDocletCreateClick:
     put `new-` cat random 999999999 into NewRequestID
     set NewInFlight
     disable NewDocletCancel
-    set style `display` of NewDocletDialogMask to `none`
     put 0 into NewRetry
     put `new` into State
     put empty into ReceivedMessage
