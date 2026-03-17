@@ -756,9 +756,9 @@ DocletViewNewClick:
         stop
     end
 
-    if TopicsAvailable is empty
+    if TopicsSelected is empty
     begin
-        alert `No topics are available`
+        alert `No topics are selected`
         stop
     end
 
@@ -768,9 +768,9 @@ DocletViewNewClick:
 
     put empty into TopicsMarkup
     put 0 into N
-    while N is less than json count of TopicsAvailable
+    while N is less than json count of TopicsSelected
     begin
-        put element N of TopicsAvailable into Text
+        put element N of TopicsSelected into Text
         put content of NewTopicItemTemplate into TopicItemMarkup
         replace `__SEQ__` with N in TopicItemMarkup
         replace `__VALUE__` with Text in TopicItemMarkup
@@ -780,13 +780,13 @@ DocletViewNewClick:
     end
     set content of NewDocletDialogList to TopicsMarkup
 
-    set the elements of NewTopicButton to json count of TopicsAvailable
+    set the elements of NewTopicButton to json count of TopicsSelected
     put 0 into N
     while N is less than elements of NewTopicButton
     begin
         index NewTopicButton to N
         attach NewTopicButton to `NewTopicButton-` cat N
-        put element N of TopicsAvailable into NewTopicButtonLabel
+        put element N of TopicsSelected into NewTopicButtonLabel
         set text of NewTopicButton to NewTopicButtonLabel
         enable NewTopicButton
         set style `opacity` of NewTopicButton to `1`
@@ -802,7 +802,7 @@ DocletViewNewClick:
 NewTopicButtonClick:
     if NewInFlight stop
     put index of NewTopicButton into N
-    put element N of TopicsAvailable into NewDocletTopic
+    put element N of TopicsSelected into NewDocletTopic
     put 0 into P
     while P is less than elements of NewTopicButton
     begin
@@ -837,7 +837,7 @@ ResetNewTopicButtons:
     while P is less than elements of NewTopicButton
     begin
         index NewTopicButton to P
-        put element P of TopicsAvailable into NewTopicButtonLabel
+        put element P of TopicsSelected into NewTopicButtonLabel
         set text of NewTopicButton to NewTopicButtonLabel
         enable NewTopicButton
         set style `opacity` of NewTopicButton to `1`
@@ -851,12 +851,12 @@ NewDocletCreateClick:
     if NewInFlight stop
     if NewDocletTopic is empty
     begin
-        if json count of TopicsAvailable is 0
+        if json count of TopicsSelected is 0
         begin
-            alert `No topics are available`
+            alert `No topics are selected`
             stop
         end
-        put element 0 of TopicsAvailable into NewDocletTopic
+        put element 0 of TopicsSelected into NewDocletTopic
     end
     put `new-` cat random 999999999 into NewRequestID
     set NewInFlight
