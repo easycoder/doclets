@@ -22,23 +22,14 @@
     
 !    debug step
 
-    ! Get the Flespi token
-    if file `~/.fernet_token` does not exist
+    ! Get the MQTT password
+    if file `~/.mqtt_password` does not exist
     begin
-        print `No token could be found.`
+        print `No MQTT password could be found.`
         exit
     end
-    load FernetToken from `~/.fernet_token`
-!    print `Token is ` cat FernetToken
-
-    ! Get the Flespi secret key
-    if file `~/.fernet_key` does not exist
-    begin
-        print `No token could be found.`
-        exit
-    end
-    load FernetKey from `~/.fernet_key`
-!    print `Key is ` cat FernetKey
+    load FernetKey from `~/.mqtt_password`
+    put trim FernetKey into FernetKey
 
     ! Get the user ID
     if file `~/.mqtt_userid` does not exist
@@ -56,9 +47,9 @@
         qos 1
 
     mqtt
-        token FernetToken FernetKey
+        token `rbr` FernetKey
         id uuid
-        broker `mqtt.flespi.io`
+        broker `rbrheating.duckdns.org`
         port 8883
         subscribe ServerTopic
 

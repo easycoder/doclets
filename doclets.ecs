@@ -102,18 +102,27 @@
         name MyID
         qos 1
     
-    rest get FernetToken from `/token`
-        or go to AbandonShip
-    rest get FernetKey from `/key`
-        or go to AbandonShip
-    put trim FernetToken into FernetToken
-    put trim FernetKey into FernetKey
+    get FernetKey from storage as `mqtt-password`
+    if FernetKey is `null` clear FernetKey
+    if FernetKey is `undefined` clear FernetKey
+    if FernetKey is empty
+    begin
+        put prompt `Enter MQTT password` into FernetKey
+        if FernetKey is `null` clear FernetKey
+        if FernetKey is `undefined` clear FernetKey
+        if FernetKey is not empty
+        begin
+            put trim FernetKey into FernetKey
+            put FernetKey into storage as `mqtt-password`
+        end
+    end
+    if FernetKey is empty go to AbandonShip
 
     mqtt
-        token FernetToken FernetKey
+        token `rbr` FernetKey
         id MyID
-        broker `mqtt.flespi.io`
-        port 443
+        broker `rbrheating.duckdns.org`
+        port 8084
         subscribe MyTopic
 
     on mqtt connect
