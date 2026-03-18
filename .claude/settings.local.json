@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:easycoder.github.io)",
+      "Bash(ls /home/graham/dev/doclets/*.ecs)",
+      "Bash(ls /home/graham/dev/doclets/*.json)",
+      "Bash(ls /home/graham/dev/doclets/*.md)",
+      "Bash(build-easycoder)",
+      "Bash(scp /home/graham/dev/doclets/easycoder-js/MQTT.js root@rbrheating.duckdns.org:/var/www/html/easycoder-js/MQTT.js)",
+      "Bash(scp /home/graham/dev/doclets/index.html root@rbrheating.duckdns.org:/var/www/html/index.html)",
+      "Bash(ssh:*)"
+    ]
+  }
+}
