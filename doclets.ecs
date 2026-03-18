@@ -122,7 +122,7 @@
         token `rbr` FernetKey
         id MyID
         broker `rbrheating.duckdns.org`
-        port 8084
+        port 443
         subscribe MyTopic
 
     on mqtt connect
