@@ -137,6 +137,20 @@
         put the mqtt message into ReceivedMessage
     end
 
+    ! Handle connection errors
+    on mqtt error
+    begin
+        remove `mqtt-password` from storage
+        alert `MQTT connection failed: ` cat the mqtt error
+            cat newline cat newline
+            cat `This may be caused by:`
+            cat newline cat `  - A wrong or expired password`
+            cat newline cat `  - A browser privacy setting (e.g. Brave Shields)`
+            cat newline cat newline
+            cat `Your saved password has been cleared.`
+            cat newline cat `Please refresh this page to enter your password again.`
+    end
+
     every 20 ticks
     begin
         if tracing stop
