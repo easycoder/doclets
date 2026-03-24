@@ -23,20 +23,28 @@
   <script>function print(msg) { console.log(msg); }</script>
   <style>
     @media print {
-      /* Hide everything except the doclet viewer path */
-      body * { visibility: hidden; }
-      #DocletViewMask,
-      #DocletViewDialog,
-      #DocletViewContent,
-      #DocletViewContent * {
-        visibility: visible;
+      /* Hide UI chrome: title bar, topics, query, results, dialogs */
+      #titles,
+      #TopicsPanel,
+      #QueryPanel,
+      #ResultsPanel,
+      #TopicsDialogMask,
+      #NewDocletDialogMask,
+      #easycoder-script,
+      #easycoder-tracer {
+        display: none !important;
       }
       /* Remove fixed/flex positioning so content flows naturally for print */
+      #doclet-screen {
+        display: block !important;
+        height: auto !important;
+      }
       #DocletViewMask {
         position: static !important;
         height: auto !important;
         overflow: visible !important;
         background: none !important;
+        display: block !important;
       }
       #DocletViewDialog {
         position: static !important;
@@ -44,6 +52,7 @@
         max-height: none !important;
         overflow: visible !important;
         display: block !important;
+        padding: 0 !important;
       }
       #DocletViewContent {
         overflow: visible !important;
