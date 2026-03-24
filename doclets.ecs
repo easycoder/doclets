@@ -206,10 +206,7 @@ SetupScreen:
     end
     else
     begin
-        put the height of the window into H
-        multiply H by 9 giving N
-        divide N by 16
-    	set style `width` of Body to N cat `px`
+    	set style `width` of Body to `80vw`
         set style `margin` of Body to `0 auto`
         set style `border` of Body to `1px solid lightgray`
     end
