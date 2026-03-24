@@ -23,52 +23,35 @@
   <script>function print(msg) { console.log(msg); }</script>
   <style>
     @media print {
-      /* Hide UI chrome: title bar, topics, query, results, dialogs */
-      #titles,
-      #TopicsPanel,
-      #QueryPanel,
-      #ResultsPanel,
-      #TopicsDialogMask,
-      #NewDocletDialogMask,
-      #easycoder-script,
-      #easycoder-tracer {
-        display: none !important;
-      }
-      /* Remove fixed/flex positioning so content flows naturally for print */
-      #doclet-screen {
+      @page { margin: 10mm; }
+      body > *:not(#print-content) { display: none !important; }
+      #print-content {
         display: block !important;
-        height: auto !important;
-      }
-      #DocletViewMask {
         position: static !important;
+        width: 100% !important;
         height: auto !important;
         overflow: visible !important;
-        background: none !important;
-        display: block !important;
-      }
-      #DocletViewDialog {
-        position: static !important;
-        height: auto !important;
-        max-height: none !important;
-        overflow: visible !important;
-        display: block !important;
+        margin: 0 !important;
         padding: 0 !important;
-      }
-      #DocletViewContent {
-        overflow: visible !important;
-        height: auto !important;
-        flex: none !important;
-      }
-      /* Hide the button row and edit textarea */
-      #DocletViewEditButton,
-      #DocletViewDeleteButton,
-      #DocletViewSaveButton,
-      #DocletViewCloseButton,
-      #DocletEditTextarea {
-        display: none !important;
+        font-size: 14pt !important;
+        text-align: left !important;
       }
     }
   </style>
+  <script>
+    window.addEventListener('beforeprint', function() {
+      var content = document.getElementById('DocletViewContent');
+      if (!content) return;
+      var div = document.createElement('div');
+      div.id = 'print-content';
+      div.innerHTML = content.innerHTML;
+      document.body.appendChild(div);
+    });
+    window.addEventListener('afterprint', function() {
+      var div = document.getElementById('print-content');
+      if (div) div.remove();
+    });
+  </script>
   <!-- Uncomment the the next line for deployment -->
   <script type='text/javascript' src='https://easycoder.github.io/dist/easycoder-min.js'></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
