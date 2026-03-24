@@ -10,7 +10,11 @@
       "Bash(scp /home/graham/dev/doclets/index.html root@rbrheating.duckdns.org:/var/www/html/index.html)",
       "Bash(ssh:*)",
       "Bash(ls:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(bash ./build-easycoder)",
+      "Bash(grep -r table /home/graham/dev/doclets/easycoder-js/*.js)",
+      "Bash(curl:*)",
+      "Bash(grep -n -B5 -A10 \"case \\\\`table\\\\`\" /home/graham/dev/doclets/easycoder-js/Browser.js)"
     ]
   }
 }
