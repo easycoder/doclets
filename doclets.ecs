@@ -107,11 +107,11 @@
     variable Username
     variable Password
 
-    rest get Credentials from `https://rbrheating.com/credentials.php`
+    rest get Credentials from `https://doclets.eclecity.net/credentials.php`
         or go to AbandonShip
-    json get Broker from Credentials key `broker`
-    json get Username from Credentials key `username`
-    json get Password from Credentials key `password`
+    put element `broker` of Credentials into Broker
+    put element `username` of Credentials into Username
+    put element `password` of Credentials into Password
 
     mqtt
         token Username Password
