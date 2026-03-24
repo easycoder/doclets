@@ -21,6 +21,33 @@
     <script type='text/javascript' src='easycoder-js/Main.js'></script>
     <script type='text/javascript' src='easycoder-js/EasyCoder.js'></script>-->
   <script>function print(msg) { console.log(msg); }</script>
+  <style>
+    @media print {
+      body > * { display: none !important; }
+      #DocletViewMask {
+        display: block !important;
+        position: static !important;
+        background: none !important;
+      }
+      #DocletViewDialog {
+        position: static !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 0 !important;
+      }
+      #DocletViewContent {
+        overflow: visible !important;
+        height: auto !important;
+      }
+      #DocletViewEditButton,
+      #DocletViewDeleteButton,
+      #DocletViewSaveButton,
+      #DocletViewCloseButton {
+        display: none !important;
+      }
+    }
+  </style>
   <!-- Uncomment the the next line for deployment -->
   <script type='text/javascript' src='https://easycoder.github.io/dist/easycoder-min.js'></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
