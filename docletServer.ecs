@@ -11,25 +11,27 @@
     dictionary ReceivedMessage
     list ResultList
     queue MessageQueue
-    variable FernetToken
-    variable FernetKey
+    variable Credentials
+    variable Broker
+    variable Username
+    variable Password
     variable MyID
     variable SenderName
     variable Topics
     variable Action
     variable SenderQoS
     variable MessageText
-    
+    dictionary CredDict
+
 !    debug step
 
-    ! Get the MQTT password
-    if file `~/.mqtt_password` does not exist
-    begin
-        print `No MQTT password could be found.`
-        exit
-    end
-    load FernetKey from `~/.mqtt_password`
-    put trim FernetKey into FernetKey
+    ! Get MQTT credentials
+    get Credentials from url `https://rbrheating.com/credentials.php`
+        or go to NoCredentials
+    put json Credentials into CredDict
+    put entry `broker` of CredDict into Broker
+    put entry `username` of CredDict into Username
+    put entry `password` of CredDict into Password
 
     ! Get the user ID
     if file `~/.mqtt_userid` does not exist
@@ -47,9 +49,9 @@
         qos 1
 
     mqtt
-        token `rbr` FernetKey
+        token Username Password
         id uuid
-        broker `rbrheating.duckdns.org`
+        broker Broker
         port 8883
         subscribe ServerTopic
 
@@ -123,3 +125,7 @@ SendReply:
         action Action
         message MessageText
     return
+
+NoCredentials:
+    print `Failed to get MQTT credentials from server.`
+    exit
