@@ -28,6 +28,26 @@ The primers don't cover everything. Key differences discovered from the runtime 
 ### MQTT token
 In both runtimes, `mqtt token Username Password` (two arguments) creates a `{username, password}` credentials object for non-flespi brokers.
 
+### Newlines in strings (JS)
+`\n` escape sequences do not work inside backtick strings. Use `cat newline cat` instead:
+```
+put prompt `Line 1:` cat newline cat `Line 2:` into Variable
+```
+
+### Hostname detection (JS)
+`the hostname` returns `window.location.hostname` (e.g. `localhost` in dev, the real domain in production).
+
+## Doclets project specifics
+
+### Running locally
+- **Server:** `easycoder docletServer.ecs` (Python)
+- **Client:** `python3 -m http.server 8080` from the project directory, then open `http://localhost:8080`
+
+### MQTT credentials
+The production client fetches credentials from `https://doclets.eclecity.net/credentials.php`, which returns a JSON object with four fields: `broker`, `username`, `password`, `serverID`.
+
+On `localhost`, CORS blocks this request. Instead, the client prompts for all four values on first load and stores them in `localStorage` under `dev-broker`, `dev-username`, `dev-password`, `dev-serverID`. To reset them, remove those keys from `localStorage`.
+
 ## EasyCoder Python runtime
 
 When fixing bugs in the core Python runtime, edit the source at `~/dev/easycoder.github.io/easycoder-py/easycoder/` — that's where the flit builder runs. After editing, reinstall with `pip install -e .` or rebuild/publish as appropriate. Don't edit the installed copies under `~/.local/lib/` directly (or do so only as a temporary test, then apply the same change to the source).
