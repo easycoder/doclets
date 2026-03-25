@@ -28,4 +28,8 @@ The primers don't cover everything. Key differences discovered from the runtime 
 ### MQTT token
 In both runtimes, `mqtt token Username Password` (two arguments) creates a `{username, password}` credentials object for non-flespi brokers.
 
+## EasyCoder Python runtime
+
+When fixing bugs in the core Python runtime, edit the source at `~/dev/easycoder.github.io/easycoder-py/easycoder/` — that's where the flit builder runs. After editing, reinstall with `pip install -e .` or rebuild/publish as appropriate. Don't edit the installed copies under `~/.local/lib/` directly (or do so only as a temporary test, then apply the same change to the source).
+
 Tasks will be provided as the need arises.

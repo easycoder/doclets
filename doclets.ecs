@@ -40,8 +40,7 @@
 
     topic MyTopic
     topic ServerTopic
-    variable FernetToken
-    variable FernetKey
+    variable ServerID
     variable MyID
     variable Topics
     variable Query
@@ -94,24 +93,55 @@
     put `Doclets-` cat random 999999 into MyID
     log `MyID = ` cat MyID
     
-    init ServerTopic
-        name `a8:41:f4:d3:19:dd/request`
-        qos 1
-
-    init MyTopic
-        name MyID
-        qos 1
-    
     variable Credentials
     variable Broker
     variable Username
     variable Password
 
-    rest get Credentials from `https://doclets.eclecity.net/credentials.php`
-        or go to AbandonShip
-    put element `broker` of Credentials into Broker
-    put element `username` of Credentials into Username
-    put element `password` of Credentials into Password
+    if the hostname is `localhost`
+    begin
+        get Broker from storage as `dev-broker`
+        if Broker is `null` clear Broker
+        if Broker is `undefined` clear Broker
+        get Username from storage as `dev-username`
+        if Username is `null` clear Username
+        if Username is `undefined` clear Username
+        get Password from storage as `dev-password`
+        if Password is `null` clear Password
+        if Password is `undefined` clear Password
+        get ServerID from storage as `dev-serverID`
+        if ServerID is `null` clear ServerID
+        if ServerID is `undefined` clear ServerID
+        if Broker is empty
+        begin
+            put prompt `Dev credentials:` cat newline cat `MQTT Broker URL:` into Broker
+            put prompt `Dev credentials:` cat newline cat `Username:` into Username
+            put prompt `Dev credentials:` cat newline cat `Password:` into Password
+            put prompt `Dev credentials:` cat newline cat `Server ID (MQTT request topic):` into ServerID
+            if Broker is empty go to AbandonShip
+            put Broker into storage as `dev-broker`
+            put Username into storage as `dev-username`
+            put Password into storage as `dev-password`
+            put ServerID into storage as `dev-serverID`
+        end
+    end
+    else
+    begin
+        rest get Credentials from `https://doclets.eclecity.net/credentials.php`
+            or go to AbandonShip
+        put element `broker` of Credentials into Broker
+        put element `username` of Credentials into Username
+        put element `password` of Credentials into Password
+        put element `serverID` of Credentials into ServerID
+    end
+    
+    init ServerTopic
+        name ServerID
+        qos 1
+
+    init MyTopic
+        name MyID
+        qos 1
 
     mqtt
         token Username Password

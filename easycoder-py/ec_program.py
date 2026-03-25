@@ -54,10 +54,14 @@ class Program:
 		if arg in ['-v', '--version']: return
 		if arg[0:6] == 'debug ':
 			print('Debug mode requested')
-			self.scriptName = arg[6:]
+			parts = arg[6:].split()
+			self.scriptName = parts[0]
+			self.argv = parts[1:]
 			self.debugging = True
 		else:
-			self.scriptName = arg
+			parts = arg.split()
+			self.scriptName = parts[0]
+			self.argv = parts[1:]
 			self.debugging = False
 
 		f = open(self.scriptName, 'r')
@@ -82,6 +86,7 @@ class Program:
 		self.graphics = None
 		self.mqtt = None
 		self.psutil = None
+		self.server = None
 		self.useClass(Core)
 		self.ticker = 0
 		self.graphicsRunning = False
@@ -187,6 +192,15 @@ class Program:
 			self.useClass(MQTT)
 		return True
 	
+	# Use the server module
+	def useServer(self):
+		if self.server == None:
+			print('Loading server module')
+			from .ec_server import Server
+			self.server = Server
+			self.useClass(Server)
+		return True
+
 	# Use the psutil module
 	def usePSUtil(self):
 		if self.psutil == None:

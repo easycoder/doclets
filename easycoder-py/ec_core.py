@@ -509,7 +509,7 @@ class Core(Handler):
         local_path = self.resolveLocalPath(path)
         with open(local_path, mode) as f:
             for chunk in response.iter_content(chunk_size=8192):
-                if chunk: f.write(chunk)
+                if chunk: f.write(chunk if binary else chunk.decode('utf-8'))
         return self.nextPC()
 
     # Match a begin
@@ -850,7 +850,6 @@ class Core(Handler):
             filename = self.textify(command['file'])
             try:
                 path = self.resolveLocalPath(filename)
-                print(path)
                 with open(path) as f: content = f.read()
             except:
                 errorReason = f'Unable to read from {filename}'
@@ -1007,32 +1006,35 @@ class Core(Handler):
     # Open a file
     # open {file} for reading/writing/appending
     def k_open(self, command):
-        if self.nextIsSymbol():
-            record = self.getSymbolRecord()
-            command['target'] = record['name']
-            command['path'] = self.nextValue()
-            if record['keyword'] == 'file':
-                if self.peek() == 'for':
-                    self.nextToken()
-                    token = self.nextToken()
-                    if token == 'appending':
-                        mode = 'a'
-                    elif token == 'reading':
-                        mode = 'r'
-                    elif token == 'writing':
-                        mode = 'w'
+        # open <filename> as <file-variable> for reading/writing/appending
+        command['path'] = self.nextValue()
+        if self.peek() == 'as':
+            self.nextToken()
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                if record['keyword'] == 'file':
+                    command['target'] = record['name']
+                    if self.peek() == 'for':
+                        self.nextToken()
+                        token = self.nextToken()
+                        if token == 'appending':
+                            mode = 'a'
+                        elif token == 'reading':
+                            mode = 'r'
+                        elif token == 'writing':
+                            mode = 'w'
+                        else:
+                            FatalError(self.compiler, f'Unknown file open mode "{token}"')
+                            return False
+                        command['mode'] = mode
                     else:
-                        FatalError(self.compiler, 'Unknown file open mode {self.getToken()}')
-                        return False
-                    command['mode'] = mode
+                        command['mode'] = 'r'
+                    self.add(command)
+                    return True
                 else:
-                    command['mode'] = 'r'
-                self.add(command)
-                return True
+                    FatalError(self.compiler, f'Variable "{record["name"]}" is not a file')
             else:
-                FatalError(self.compiler, f'Variable "{self.getToken()}" is not a file')
-        else:
-            self.warning(f'Core.open: Variable "{self.getToken()}" not declared')
+                self.warning(f'Core.open: Variable "{self.getToken()}" not declared')
         return False
 
     def r_open(self, command):
@@ -1233,7 +1235,10 @@ class Core(Handler):
         line = command['line']
         file = fileRecord['file']
         if file.mode == 'r':
-            content = file.readline().split('\n')[0] if line else file.read()
+            if line:
+                content = file.readline().split('\n')[0]
+            else:
+                content = file.readline().rstrip('\n')
             value = ECValue(type=str, content=content)
             self.putSymbolValue(record, value)
         return self.nextPC()
@@ -1292,6 +1297,13 @@ class Core(Handler):
 
     # Return from subroutine
     def k_return(self, command):
+        next_token = self.peek()
+        if next_token is not None and (
+            self.compiler.hasValue(next_token) or
+            next_token.startswith('`') or
+            (len(next_token) > 0 and next_token[0].isdigit())
+        ):
+            return False
         self.add(command)
         return True
 
@@ -1950,6 +1962,8 @@ class Core(Handler):
                 return self.program.useMQTT()
             elif token == 'psutil':
                 return self.program.usePSUtil()
+            elif token == 'server':
+                return self.program.useServer()
         return False
     
     # Unused
@@ -2111,7 +2125,7 @@ class Core(Handler):
                 return value
             return None
 
-        if token in ['now', 'today', 'newline', 'tab', 'empty']:
+        if token in ['now', 'today', 'newline', 'tab', 'empty', 'cwd']:
             return value
 
         if token in ['stringify', 'prettify', 'json', 'lowercase', 'uppercase', 'hash', 'random', float, 'integer', 'encode', 'decode']:
@@ -2282,6 +2296,9 @@ class Core(Handler):
             token = self.nextToken()
             if token in ['in', 'of']:
                 value.target = self.nextValue() # type: ignore
+                if self.peek() == 'type':
+                    self.nextToken()
+                    value.filter = self.nextValue() # type: ignore
                 return value
             return None
 
@@ -2352,9 +2369,13 @@ class Core(Handler):
         return ECValue(type=str, content=json.dumps(self.program.argv))
 
     def v_arg(self, v):
-        index = self.textify(v['index'])
+        index = self.textify(v.index)
+        if not hasattr(self.program, 'argv') or self.program.argv is None:
+            RuntimeError(self.program, 'No command-line arguments were provided')
+            return ECValue(type=str, content='')
         if index >= len(self.program.argv):
-            RuntimeError(self.program, 'Index exceeds # of args')
+            RuntimeError(self.program, f'Argument index {index} out of range (only {len(self.program.argv)} args provided)')
+            return ECValue(type=str, content='')
         return ECValue(type=str, content=self.program.argv[index])
 
     def v_bool(self, v):
@@ -2364,8 +2385,8 @@ class Core(Handler):
         return self.v_bool(v)
 
     def v_cos(self, v):
-        angle = self.textify(v['angle'])
-        radius = self.textify(v['radius'])
+        angle = self.textify(v.angle)
+        radius = self.textify(v.radius)
         return ECValue(type=int, content=round(math.cos(angle * 0.01745329) * radius))
 
     def v_count(self, v):
@@ -2444,7 +2465,13 @@ class Core(Handler):
 
     def v_files(self, v):
         path = self.textify(v.target)
-        return ECValue(type=str, content=json.dumps(os.listdir(path)))
+        filter_ext = self.textify(v.filter) if v.filter else None
+        entries = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        if filter_ext:
+            exts = {e.strip().lstrip('.') for e in filter_ext.split(',')}
+            entries = [f for f in entries if os.path.splitext(f)[1].lstrip('.').lower() in exts]
+        entries.sort()
+        return ECValue(type=str, content=json.dumps(entries))
 
     def v_float(self, v):
         val = self.textify(v.getContent())
@@ -2554,7 +2581,7 @@ class Core(Handler):
         return ECValue(type=str, content=self.program.message)
 
     def v_modification(self, v):
-        fileName = self.textify(v['fileName'])
+        fileName = self.textify(v.fileName)
         ts = int(os.stat(self.resolveLocalPath(fileName)).st_mtime)
         return ECValue(type=int, content=ts)
 
@@ -2565,6 +2592,9 @@ class Core(Handler):
 
     def v_newline(self, v):
         return ECValue(type=str, content='\n')
+
+    def v_cwd(self, v):
+        return ECValue(type=str, content=os.getcwd())
 
     def v_now(self, v):
         return ECValue(type=int, content=int(time.time() * 1000))
@@ -2633,8 +2663,8 @@ class Core(Handler):
         return ECValue(type=str, content='\t')
 
     def v_tan(self, v):
-        angle = self.textify(v['angle'])
-        radius = self.textify(v['radius'])
+        angle = self.textify(v.angle)
+        radius = self.textify(v.radius)
         return ECValue(type=int, content=round(math.tan(angle * 0.01745329) * radius))
 
     def v_ticker(self, v):
@@ -2664,7 +2694,7 @@ class Core(Handler):
 
     def v_type(self, v):
         value = ECValue(type=str)
-        val = self.textify(v['value'])
+        val = self.textify(v.value)
         if val is None:
             value.setContent('none')
         elif type(val) is str:
@@ -2710,9 +2740,27 @@ class Core(Handler):
         token = self.getToken()
 
         if token == 'not':
-            condition.type = 'not' # type: ignore
-            condition.value = self.nextValue() # type: ignore
-            return condition
+            # Check if this is 'not at end of <file>'
+            if self.peek() == 'at':
+                self.nextToken()
+                condition.negate = True # type: ignore
+                token = 'at'
+            else:
+                condition.type = 'not' # type: ignore
+                condition.value = self.nextValue() # type: ignore
+                return condition
+
+        if token == 'at':
+            # at end of <file>
+            if self.nextIs('end'):
+                if self.nextIs('of'):
+                    if self.nextIsSymbol():
+                        record = self.getSymbolRecord()
+                        if record['keyword'] == 'file':
+                            condition.type = 'atEndOf' # type: ignore
+                            condition.target = record['name'] # type: ignore
+                            return condition
+            return None
 
         elif token == 'error':
             self.nextToken()
@@ -2803,6 +2851,7 @@ class Core(Handler):
                 return condition
 
         if token == 'includes':
+            self.nextToken()
             condition.value2 = self.nextValue() # type: ignore
             return condition
 
@@ -2858,6 +2907,19 @@ class Core(Handler):
     
     def c_boolean(self, condition):
         return self.c_bool(condition)
+
+    def c_atEndOf(self, condition):
+        record = self.getVariable(condition.target)
+        f = record.get('file')
+        if f is None:
+            return True
+        ch = f.read(1)
+        if ch == '':
+            result = True
+        else:
+            f.seek(f.tell() - 1)
+            result = False
+        return not result if condition.negate else result
 
     def c_debugging(self, condition):
         return self.program.debugging

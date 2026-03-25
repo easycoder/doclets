@@ -26,22 +26,22 @@
 !    debug step
 
     ! Get MQTT credentials
-    get Credentials from url `https://rbrheating.com/credentials.php`
-        or go to NoCredentials
+    if file `credentials` exists load Credentials from `credentials`
+    else
+    begin
+	    get Credentials from url `https://rbrheating.com/credentials.php`
+    	    or go to NoCredentials
+    end
     put json Credentials into CredDict
     put entry `broker` of CredDict into Broker
     put entry `username` of CredDict into Username
     put entry `password` of CredDict into Password
+    put entry `serverID` of CredDict into MyID
 
-    ! Get the user ID
-    if file `~/.mqtt_userid` does not exist
-    begin
-        print `No user ID could be found.`
-        exit
-    end
-    load MyID from `~/.mqtt_userid`
-    put trim MyID into MyID
-    print `User ID is ` cat MyID
+    log `Broker is ` cat Broker
+    log `Username is ` cat Username
+    log `Password is ` cat Password
+    log `MyID is ` cat MyID
 
     ! Set up MQTT
     init ServerTopic
