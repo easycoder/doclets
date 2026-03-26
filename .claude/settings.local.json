@@ -14,7 +14,8 @@
       "Bash(bash ./build-easycoder)",
       "Bash(grep -r table /home/graham/dev/doclets/easycoder-js/*.js)",
       "Bash(curl:*)",
-      "Bash(grep -n -B5 -A10 \"case \\\\`table\\\\`\" /home/graham/dev/doclets/easycoder-js/Browser.js)"
+      "Bash(grep -n -B5 -A10 \"case \\\\`table\\\\`\" /home/graham/dev/doclets/easycoder-js/Browser.js)",
+      "WebSearch"
     ]
   }
 }

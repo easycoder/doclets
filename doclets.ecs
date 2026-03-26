@@ -40,7 +40,7 @@
 
     topic MyTopic
     topic ServerTopic
-    variable ServerID
+    variable Mac
     variable MyID
     variable Topics
     variable Query
@@ -74,7 +74,6 @@
     variable NewInFlight
     variable NewRequestID
     variable NewTopicButtonLabel
-    variable H
     variable DbgTapCount
     variable DbgLastTap
     variable DbgNow
@@ -97,6 +96,7 @@
     variable Broker
     variable Username
     variable Password
+    variable NeedCredentials
 
     if the hostname is `localhost`
     begin
@@ -109,20 +109,23 @@
         get Password from storage as `dev-password`
         if Password is `null` clear Password
         if Password is `undefined` clear Password
-        get ServerID from storage as `dev-serverID`
-        if ServerID is `null` clear ServerID
-        if ServerID is `undefined` clear ServerID
-        if Broker is empty
+        get Mac from storage as `dev-mac`
+        if Mac is `null` clear Mac
+        if Mac is `undefined` clear Mac
+        clear NeedCredentials
+        if Broker is empty set NeedCredentials
+        if Mac is empty set NeedCredentials
+        if NeedCredentials
         begin
             put prompt `Dev credentials:` cat newline cat `MQTT Broker URL:` into Broker
             put prompt `Dev credentials:` cat newline cat `Username:` into Username
             put prompt `Dev credentials:` cat newline cat `Password:` into Password
-            put prompt `Dev credentials:` cat newline cat `Server ID (MQTT request topic):` into ServerID
+            put prompt `Dev credentials:` cat newline cat `Mac (MQTT request topic):` into Mac
             if Broker is empty go to AbandonShip
             put Broker into storage as `dev-broker`
             put Username into storage as `dev-username`
             put Password into storage as `dev-password`
-            put ServerID into storage as `dev-serverID`
+            put Mac into storage as `dev-mac`
         end
     end
     else
@@ -132,11 +135,11 @@
         put element `broker` of Credentials into Broker
         put element `username` of Credentials into Username
         put element `password` of Credentials into Password
-        put element `serverID` of Credentials into ServerID
+        put element `mac` of Credentials into Mac
     end
     
     init ServerTopic
-        name ServerID
+        name Mac
         qos 1
 
     init MyTopic
@@ -808,6 +811,12 @@ DocletViewNewClick:
     clear NewInFlight
     clear NewRequestID
     enable NewDocletCancel
+
+    if json count of TopicsSelected is 1
+    begin
+        put element 0 of TopicsSelected into NewDocletTopic
+        go to NewDocletCreateClick
+    end
 
     put empty into TopicsMarkup
     put 0 into N

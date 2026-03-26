@@ -29,14 +29,14 @@
     if file `credentials` exists load Credentials from `credentials`
     else
     begin
-	    get Credentials from url `https://rbrheating.com/credentials.php`
+	    get Credentials from url `https://doclets.eclecity.net/credentials.php`
     	    or go to NoCredentials
     end
     put json Credentials into CredDict
     put entry `broker` of CredDict into Broker
     put entry `username` of CredDict into Username
     put entry `password` of CredDict into Password
-    put entry `serverID` of CredDict into MyID
+    put entry `mac` of CredDict into MyID
 
     log `Broker is ` cat Broker
     log `Username is ` cat Username

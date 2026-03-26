@@ -1,0 +1,2 @@
+{"broker":"rbrheating.duckdns.org","username":"rbr","password":"Ev5nt-H0r1zon","mac":"a8:41:f4:d3:19:dd/request"}
+
