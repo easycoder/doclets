@@ -289,7 +289,7 @@ class DocletManager():
         # New doclet canonical path.
         return self._canonical_doclet_path_from_display_name(display_name)
 
-    def save_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = 'doclet-save-acl.json') -> str:
+    def save_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = '~/.doclet-save.acl') -> str:
         first_newline = payload.find('\n')
         if first_newline < 0:
             return 'Save failed: invalid payload'
@@ -339,7 +339,7 @@ class DocletManager():
         except Exception:
             return f'Save failed for {doclet_name}'
 
-    def _is_token_allowed_for_topic(self, token: str, topic: str, acl_path: Union[Path, str] = 'doclet-save-acl.json') -> bool:
+    def _is_token_allowed_for_topic(self, token: str, topic: str, acl_path: Union[Path, str] = '~/.doclet-save.acl') -> bool:
         acl = self._load_save_acl(acl_path)
         entries = acl.get('entries', [])
         for entry in entries:
@@ -400,7 +400,7 @@ class DocletManager():
         except Exception:
             return f'Create failed for {display_name}'
 
-    def create_new_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = 'doclet-save-acl.json') -> str:
+    def create_new_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = '~/.doclet-save.acl') -> str:
         first_newline = payload.find('\n')
         if first_newline < 0:
             return 'Create failed: invalid payload'
@@ -473,7 +473,7 @@ class DocletManager():
 
         return result
 
-    def delete_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = 'doclet-save-acl.json') -> str:
+    def delete_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = '~/.doclet-save.acl') -> str:
         first_newline = payload.find('\n')
         if first_newline < 0:
             return 'Delete failed: invalid payload'
