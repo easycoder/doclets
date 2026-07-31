@@ -13,7 +13,7 @@
 
     "$DebugRow": {
         "#element": "div",
-        "@id": "easycoder-tracer",
+        "@id": "allspeak-tracer",
         "display": "none",
         "flex": "0 0 auto",
         "position": "sticky",

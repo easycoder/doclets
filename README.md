@@ -1,22 +1,27 @@
-# Script editor
+# Doclets
 
-The files here are for our color-coded script editor, 'scripted'. They comprise 5 files:
-scripted-server.ecs__
-scripted.html__
-scripted.ecs__
-scripted.json__
-README.md (this file)__
-Put all files in the same directory as the scripts you want to edit.
+Central file storage and reader for Markdown documents, now running on
+[AllSpeak](https://github.com/allspeak.ai/allspeak-py) (a multilingual fork of
+EasyCoder). Client/server communication uses MQTT.
 
-Start up the server:
+## Files
 
-`easycoder scripted-server.ecs {port}`
+- `doclets.as` — the browser UI (AllSpeak JS dialect, Webson for DOM rendering; runs on smartphones)
+- `docletServer.as` — the server (AllSpeak Python dialect)
+- `as_doclets.py` — Python plugin with the doclet search/manage logic (loaded by `docletServer.as`)
+- `doclets.json` — Webson screen layout
+- `index.html` — entry point; loads `allspeak-min.js` from `https://allspeak.ai/dist/`
+- `allspeak-js/`, `allspeak-py/` — vendored AllSpeak runtimes for local development
+  (`relink-allspeak.sh` replaces the JS files with symlinks to your AllSpeak checkout)
+- `credentials.php`, `credentials-local`, `doclets.eclecity.net.txt` — MQTT credentials
+- `docletServer.py` — cron helper that restarts `docletServer.as` daily
+- `doclets` — installer script for the server (installs the `allspeak-ai` pip package)
 
-where {port} is a port number such as 8080, then open the editor in your browser at:
+## Running locally
 
-`http://localhost:{port}/scripted.html`
+- **Server:** `allspeak docletServer.as`
+- **Client:** `python3 -m http.server 8080` → `http://localhost:8080`
 
-This should start the editor.
-
-
-See the instructions in our [Primer](https://easycoder.github.io/primer.html).
+On localhost the client prompts for the four MQTT credential values
+(`dev-broker`, `dev-username`, `dev-password`, `dev-mac`) and stores them in
+`localStorage`; remove those keys to reset them.
