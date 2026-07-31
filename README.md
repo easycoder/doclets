@@ -25,3 +25,11 @@ EasyCoder). Client/server communication uses MQTT.
 On localhost the client prompts for the four MQTT credential values
 (`dev-broker`, `dev-username`, `dev-password`, `dev-mac`) and stores them in
 `localStorage`; remove those keys to reset them.
+
+## Deploying
+
+`./deploy.sh /path/to/web/root` copies the three files the client needs
+(`index.html`, `doclets.as`, `doclets.json`) to the web root; add `--infra` to
+also copy `credentials.php`, `.htaccess`, `mqtt_token.php`, `favicon.ico`.
+It only copies — leftover `.ecs` files on the site should be removed by hand
+once the new client is confirmed working.
