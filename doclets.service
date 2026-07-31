@@ -1,0 +1,50 @@
+# doclets.service — systemd unit for the Doclets MQTT server (AllSpeak).
+#
+# There was never a service file for the doclet server: on the original machine
+# it was started by hand (or by the docletServer.py cron helper). This unit is
+# for the new hosting computer.
+#
+# Setup on the hosting computer:
+#   1. Install the AllSpeak Python runtime:
+#        pip install -U allspeak-ai
+#      (or run the repo's `doclets` installer, which also fetches the files)
+#   2. Put the server files in the WorkingDirectory below (adjust to taste):
+#        mkdir -p /opt/doclets
+#        cp docletServer.as as_doclets.py /opt/doclets/
+#      as_doclets.py MUST sit next to docletServer.as — the plugin is loaded
+#      from the working directory.
+#   3. Put the doclet content where the plugin expects it: the service user's
+#      ~/Doclets directory (year folders), e.g. /home/doclets/Doclets/.
+#   4. Optional but recommended: create /opt/doclets/credentials containing the
+#      MQTT credentials JSON ({"broker":...,"username":...,"password":...,"mac":...}
+#      — see credentials-local; mac WITHOUT the /request suffix). Otherwise the
+#      server fetches https://doclets.eclecity.net/credentials.php at startup.
+#   5. Install and start:
+#        sudo cp doclets.service /etc/systemd/system/
+#        sudo systemctl daemon-reload
+#        sudo systemctl enable --now doclets
+#   6. Check it:
+#        systemctl status doclets
+#        journalctl -u doclets -f
+#
+# Adjust User, WorkingDirectory and ExecStart to match your layout (the
+# allspeak binary lives wherever pip put it — /usr/local/bin or ~/.local/bin).
+
+[Unit]
+Description=Doclets MQTT server (AllSpeak)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=doclets
+Group=doclets
+WorkingDirectory=/opt/doclets
+ExecStart=/usr/local/bin/allspeak docletServer.as
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
