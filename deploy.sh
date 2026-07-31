@@ -1,28 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# deploy.sh — deploy the AllSpeak doclets client to the doclets.eclecity.net web root.
+# deploy.sh — deploy the AllSpeak doclets client to doclets.eclecity.net.
 #
 # The new client needs exactly three files served by the web server:
 #   index.html    – the page + loader (loads the AllSpeak CDN bundle)
 #   doclets.as    – the client script (fetched by the loader)
 #   doclets.json  – Webson screen layout
 #
-# This script copies only; it never deletes. Leftover .ecs files on the site
+# It only copies/pushes; it never deletes. Leftover .ecs files on the site
 # (doclets.ecs, scripted.*, ...) are no longer used — remove them by hand once
 # the new client is confirmed working.
 #
-# Optional --infra also copies the supporting files that should already be in
-# place on the site: credentials.php, .htaccess, mqtt_token.php, favicon.ico.
+# Target resolution, in order of precedence:
+#   1. a command-line target:
+#        ./deploy.sh /path/to/web/root            # local directory (cp)
+#        ./deploy.sh user@host:/path/to/root      # remote host (rsync)
+#   2. the DOCLETS_DEPLOY_DIR env var (local directory)
+#   3. deploy.conf (copy deploy.conf.example and fill in):
+#        rsync to $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH
 #
-# doclets.eclecity.net.txt is intentionally NOT deployed: credentials.php reads
-# it from one level ABOVE the web root, and the live copy is already correct.
+# Options:
+#   --infra        also copy credentials.php, .htaccess, mqtt_token.php, favicon.ico
+#   -h | --help    show this help
 #
-# Usage:
-#   ./deploy.sh /path/to/web/root          # client files only
-#   ./deploy.sh --infra /path/to/web/root  # client + supporting files
-#   DOCLETS_DEPLOY_DIR=/path ./deploy.sh   # target from environment
-#   ./deploy.sh -h                          # show this help
+# Environment:
+#   DEPLOY_DRY_RUN=1   print the rsync command without running it
+#   DEPLOY_PORT=<n>    ssh port (from deploy.conf or environment)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -30,7 +34,7 @@ cd "$SCRIPT_DIR"
 INFRA=0
 case "${1:-}" in
   -h|--help|help)
-    sed -n '2,35p' "$0"
+    sed -n '2,45p' "$0"
     exit 0
     ;;
   --infra)
@@ -39,30 +43,63 @@ case "${1:-}" in
     ;;
 esac
 
-TARGET="${1:-${DOCLETS_DEPLOY_DIR:-}}"
-if [[ -z "$TARGET" ]]; then
-  echo "Usage: $0 [--infra] TARGET_DIR   (or set DOCLETS_DEPLOY_DIR)" >&2
-  exit 2
+# Optional per-machine connection details (never committed).
+if [[ -f deploy.conf ]]; then
+  # shellcheck disable=SC1091
+  source deploy.conf
 fi
-if [[ ! -d "$TARGET" ]]; then
-  echo "error: target directory not found: $TARGET" >&2
-  exit 2
+
+TARGET="${1:-}"
+if [[ -z "$TARGET" && -n "${DOCLETS_DEPLOY_DIR:-}" ]]; then
+  TARGET="$DOCLETS_DEPLOY_DIR"
+fi
+if [[ -z "$TARGET" ]]; then
+  if [[ -n "${DEPLOY_USER:-}" && -n "${DEPLOY_HOST:-}" && -n "${DEPLOY_PATH:-}" ]]; then
+    TARGET="$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH"
+  else
+    echo "No target given and no connection details configured." >&2
+    echo "Usage: $0 [--infra] TARGET_DIR | user@host:/path" >&2
+    echo "  or copy deploy.conf.example to deploy.conf and set DEPLOY_USER/DEPLOY_HOST/DEPLOY_PATH." >&2
+    exit 2
+  fi
 fi
 
 CLIENT_FILES=(index.html doclets.as doclets.json)
 INFRA_FILES=(credentials.php .htaccess mqtt_token.php favicon.ico)
 
-echo "Deploying doclets client to $TARGET"
-for f in "${CLIENT_FILES[@]}"; do
+FILES=("${CLIENT_FILES[@]}")
+if (( INFRA )); then
+  FILES+=("${INFRA_FILES[@]}")
+fi
+for f in "${FILES[@]}"; do
   [[ -f "$f" ]] || { echo "error: missing $f in repo" >&2; exit 1; }
-  cp -v "$f" "$TARGET/$f"
 done
 
-if (( INFRA )); then
-  for f in "${INFRA_FILES[@]}"; do
-    [[ -f "$f" ]] || { echo "warning: missing $f — skipping" >&2; continue; }
+# --- local target: plain copy -------------------------------------------
+if [[ "$TARGET" != *:* ]]; then
+  if [[ ! -d "$TARGET" ]]; then
+    echo "error: target directory not found: $TARGET" >&2
+    exit 2
+  fi
+  echo "Deploying doclets client to $TARGET"
+  for f in "${FILES[@]}"; do
     cp -v "$f" "$TARGET/$f"
   done
+else
+  # --- remote target: rsync over ssh -------------------------------------
+  REMOTE="$TARGET"
+  [[ "$REMOTE" == */ ]] || REMOTE="$REMOTE/"
+  SSH_CMD=(ssh)
+  if [[ -n "${DEPLOY_PORT:-}" ]]; then
+    SSH_CMD=(ssh -p "$DEPLOY_PORT")
+  fi
+  RSYNC_CMD=(rsync -az -e "${SSH_CMD[*]}" "${FILES[@]}" "$REMOTE")
+  if [[ -n "${DEPLOY_DRY_RUN:-}" ]]; then
+    echo "Would run: ${RSYNC_CMD[*]}"
+    exit 0
+  fi
+  echo "Deploying doclets client to $REMOTE"
+  "${RSYNC_CMD[@]}"
 fi
 
 cat <<EOF

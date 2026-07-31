@@ -28,8 +28,17 @@ On localhost the client prompts for the four MQTT credential values
 
 ## Deploying
 
-`./deploy.sh /path/to/web/root` copies the three files the client needs
-(`index.html`, `doclets.as`, `doclets.json`) to the web root; add `--infra` to
-also copy `credentials.php`, `.htaccess`, `mqtt_token.php`, `favicon.ico`.
-It only copies — leftover `.ecs` files on the site should be removed by hand
-once the new client is confirmed working.
+`./deploy.sh` deploys the three files the client needs (`index.html`,
+`doclets.as`, `doclets.json`); add `--infra` to also copy `credentials.php`,
+`.htaccess`, `mqtt_token.php`, `favicon.ico`. It only copies — leftover `.ecs`
+files on the site should be removed by hand once the new client is confirmed
+working.
+
+Targets, in order of precedence:
+1. a command-line target — `/path/to/web/root` (local `cp`) or `user@host:/path` (rsync)
+2. `DOCLETS_DEPLOY_DIR=/path ./deploy.sh`
+3. `deploy.conf` — copy `deploy.conf.example` and fill in `DEPLOY_USER` /
+   `DEPLOY_HOST` / `DEPLOY_PATH`; then a bare `./deploy.sh` rsyncs to
+   `user@doclets.eclecity.net:path`
+
+`DEPLOY_DRY_RUN=1 ./deploy.sh` prints the rsync command without running it.
