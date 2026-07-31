@@ -12,7 +12,11 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = process.argv[2];
+const HOST = process.argv[3] || 'localhost';   // 'localhost' → storage/prompt path; anything else → rest-get credentials path
 const FILES = ['Core.js','Browser.js','MarkdownRenderer.js','Webson.js','JSON.js','MQTT.js','REST.js','Compare.js','Condition.js','Value.js','Run.js','Opcodes.js','Language.js','LanguagePack_en.js','Compile.js','Main.js','AllSpeak.js'];
+
+// location is fixed before the runtime boots; it drives the hostname check
+const pageURL = HOST === 'localhost' ? 'http://localhost:8080/' : 'https://' + HOST + '/';
 
 // ---------- browser shim ----------
 function makeElement(tag) {
@@ -57,7 +61,7 @@ const document = {
   title: '', cookie: '', readyState: 'complete',
   hidden: false, visibilityState: 'visible',
 };
-document.location = { hostname: 'localhost', href: 'http://localhost:8080/', protocol: 'http:' };
+document.location = { hostname: HOST, href: pageURL, protocol: HOST === 'localhost' ? 'http:' : 'https:' };
 
 const localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem(k) { delete this._d[k]; }, clear() { this._d = {}; } };
 
