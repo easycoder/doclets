@@ -44,6 +44,10 @@ ExecStart=/usr/local/bin/allspeak docletServer.as
 Restart=on-failure
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+# Optional LLM configuration (the defaults below are already the code's):
+# Environment=DOCLETS_LLM_MODEL=qwen3.5:9b
+# Environment=DOCLETS_EMBED_MODEL=nomic-embed-text
+# Environment=DOCLETS_OLLAMA_URL=http://localhost:11434
 NoNewPrivileges=true
 
 [Install]

@@ -42,3 +42,36 @@ Targets, in order of precedence:
    `user@doclets.eclecity.net:path`
 
 `DEPLOY_DRY_RUN=1 ./deploy.sh` prints the rsync command without running it.
+
+## Local LLM search (experimental)
+
+The query box has an **AI** checkbox (or prefix any query with `LLM:`). With it
+checked:
+
+- **Synthesis questions** — "list the main topics covered by doclets in the
+  Linux topic", "summarize what these doclets cover" — are answered by the
+  local Ollama model from the doclets' **subject lines only** (no full-body
+  reads, so this scales with the corpus).
+- **Semantic searches** with no literal match (e.g. "Python MQTT messaging")
+  are retrieved by embedding similarity over a per-topic cached index, then
+  ranked by the model.
+- Plain (unchecked) queries keep their existing behaviour: filename lookup, or
+  complete literal substring matching.
+
+The doclet server reads its LLM configuration from environment variables:
+
+| Variable | Default |
+|---|---|
+| `DOCLETS_OLLAMA_URL` | `http://localhost:11434` |
+| `DOCLETS_LLM_MODEL` | `qwen3.5:9b` |
+| `DOCLETS_EMBED_MODEL` | `nomic-embed-text` |
+| `DOCLETS_LLM_TOP_K` | `20` |
+| `DOCLETS_LLM_NUM_CTX` | `8192` |
+| `DOCLETS_LLM_KEEP_ALIVE` | `30m` |
+| `DOCLETS_LLM_TIMEOUT` | `120` |
+| `DOCLETS_EMBED_CACHE` | `~/.doclet-embeddings` |
+| `DOCLETS_LLM_SYNTH` | synthesis-query markers (comma-separated) |
+
+One-time setup on the machine running the doclet server:
+`ollama pull qwen3.5:9b` and `ollama pull nomic-embed-text`. Server-side tests
+(no model needed) live in `test_as_doclets.py`.

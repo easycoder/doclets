@@ -37,6 +37,7 @@
     button DocletButton
     input QueryInput
     input TopicCheckbox
+    input LLMQueryCheckbox
 
     topic MyTopic
     topic ServerTopic
@@ -254,6 +255,7 @@ SetupScreen:
     attach DebugRow to `allspeak-tracer`
     attach TopicList to `TopicList`
     attach QueryInput to `QueryInput`
+    attach LLMQueryCheckbox to `LLMQueryCheckbox`
     attach TopicsDialogMask to `TopicsDialogMask`
     attach TopicsDialogList to `TopicsDialogList`
     attach TopicItemTemplate to `TopicItemTemplate`
@@ -445,6 +447,10 @@ TopicsDialogOKClick:
 SendQueryClick:
     enable QueryInput
     put QueryInput into Query
+    if LLMQueryCheckbox
+    begin
+        put `LLM:` cat Query into Query
+    end
     put `query` into State
     clear DocletListPanel
     put empty into ReceivedMessage
@@ -521,6 +527,13 @@ ProcessMessage:
     else if State is `query`
     begin
         enable QueryInput
+        if left 7 of ReceivedMessage is `ANSWER|`
+        begin
+            put from 8 of ReceivedMessage into Text
+            replace newline with `<br>` in Text
+            set content of DocletListPanel to `<div style='padding:1em;font-size:1.05em;line-height:1.5;word-wrap:break-word;'>` cat Text cat `</div>`
+            stop
+        end
         if ReceivedMessage is `[]`
         begin
             set content of DocletListPanel to `<div style='font-size:1.3em;font-weight:bold;text-align:center;padding-top:1em;'>No matching doclets</div>`
