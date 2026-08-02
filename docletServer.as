@@ -1,4 +1,7 @@
-!   docletServer.as
+!! Doclet server: the server half of Doclets, run under the AllSpeak Python runtime.
+!!
+!! Loads MQTT credentials, subscribes to the request topic, and delegates each incoming action to the `doclets` plugin.
+
 
     script DocletServer
 
@@ -27,6 +30,11 @@
 !    debug step
 
     ! Get MQTT credentials
+!! @hash a35f78fb
+!!!
+
+!! Load MQTT credentials from a local file if present, otherwise fetch them from the credentials endpoint.
+
     if file `credentials` exists load Credentials from `credentials`
     else
     begin
@@ -45,6 +53,13 @@
     log `MyID is ` cat MyID
 
     ! Set up MQTT
+!! @hash bc2ca66a
+!!!
+
+!! Connect to the broker, subscribe, and run the request/reply loop.
+!!
+!! Each message is popped and dispatched by action; the doclets plugin does the heavy lifting.
+
     init ServerTopic
         name MyID
         qos 1
@@ -83,12 +98,22 @@
     stop
 
 ! Get a list of the available doclet topics
+!! @hash c388fe7a
+!!!
+
+!! Reply with the topics the requester may read (the plugin filters by the caller's token).
+
 GetTopics:
     doclets topics TopicsList from ReceivedMessage
     put TopicsList into MessageText
     go to SendReply
 
 ! Process a query
+!! @hash 66c8648b
+!!!
+
+!! Search for doclets matching the query and send the result list back.
+
 DoQuery:
     doclets query ResultList from ReceivedMessage
     if the count of ResultList is 0 log `No results`
@@ -97,26 +122,51 @@ DoQuery:
     go to SendReply
 
 ! Get the content of a doclet
+!! @hash e3dc6957
+!!!
+
+!! Read one doclet's content and reply.
+
 GetDoclet:
     doclets view MessageText from ReceivedMessage
     go to SendReply
 
 ! Save handling is delegated to as_doclets.py (ACL + path validation + file write)
+!! @hash 958e08e8
+!!!
+
+!! Save handling is delegated to as_doclets.py (ACL + path validation + file write).
+
 HandleSaveViaPlugin:
     doclets save MessageText from ReceivedMessage
     go to SendReply
 
 ! New doclet handling is delegated to as_doclets.py
+!! @hash e12d8581
+!!!
+
+!! New doclet handling is delegated to as_doclets.py.
+
 HandleNewViaPlugin:
     doclets new MessageText from ReceivedMessage
     go to SendReply
 
 ! Delete doclet handling is delegated to as_doclets.py
+!! @hash 44bcb26a
+!!!
+
+!! Delete handling is delegated to as_doclets.py.
+
 HandleDeleteViaPlugin:
     doclets delete MessageText from ReceivedMessage
     go to SendReply
 
 ! Send a reply message
+!! @hash 329535d5
+!!!
+
+!! Send a reply message back to the sender's own topic.
+
 SendReply:
     init SenderTopic
         name SenderName
@@ -127,6 +177,13 @@ SendReply:
         message MessageText
     return
 
+!! @hash fb257dfe
+!!!
+
+!! Credentials could not be obtained: report and exit.
+
 NoCredentials:
     print `Failed to get MQTT credentials from server.`
     exit
+!! @hash 539b739d
+!!!

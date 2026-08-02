@@ -1,4 +1,7 @@
-!   doclets.as - the Doclet UI
+!! Doclets: the browser client for a central, searchable Markdown document repository.
+!!
+!! Renders the Webson screen, talks to the doclet server over MQTT, and drives the topic / query / view / edit / save / delete workflow from a phone-sized UI.
+
 
     script Doclets
 
@@ -6,6 +9,13 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Doclet query system
+
+!! @hash 22bcc580
+!!!
+
+!! Declare every DOM element and script variable up front.
+!!
+!! AllSpeak requires declarations before use; keeping them together lets the body code read as plain prose.
 
     div Body
     div TitleBanner
@@ -92,6 +102,13 @@
 !    debug step
 
 !   Set up MQTT
+!! @hash 7d17c5d6
+!!!
+
+!! Boot sequence: load MQTT credentials (stored locally on localhost, fetched from the credentials endpoint elsewhere), connect to the broker, and hand control to the event handlers.
+!!
+!! The `on mqtt connect`, `on mqtt message` and `every 20 ticks` handlers drive the rest of the program; the save-button enable/disable poll lives here too.
+
     put `Doclets-` cat random 999999 into MyID
     log `MyID = ` cat MyID
     
@@ -198,6 +215,11 @@
     end
     stop
 
+!! @hash 694fde33
+!!!
+
+!! On first connection: set up the main window, load any stored auth token, and ask the server for the list of topics the caller may read.
+
 Connected:
     ! Do the basic setup of the main window
     put `idle` into State
@@ -222,6 +244,13 @@ Connected:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up the main screen
+!! @hash 6d96cbe1
+!!!
+
+!! Render the Webson layout and attach every element the handlers will manipulate.
+!!
+!! Mobile devices get a full-width body, desktop a centred bordered card. All click handlers are registered once here.
+
 SetupScreen:
     ! put SaveAuthToken into storage as `save-auth-token`
     log `Set up the screen...`
@@ -341,6 +370,11 @@ SetupScreen:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Warn the user and abandon this run
+!! @hash 8a3ab478
+!!!
+
+!! Fatal-error exit: warn the user and abandon the run.
+
 AbandonShip:
 	alert `An unrecoverable error has occurred.`
     	cat newline cat `Please refresh this browser page to restart.`
@@ -348,6 +382,11 @@ AbandonShip:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the Choose button
+!! @hash 98407b55
+!!!
+
+!! Open the topic picker: build the checkbox list from the available topics and restore the previously selected ones.
+
 ChooseTopics:
     enable QueryInput
     if TopicsAvailable is empty set TopicsListed to array
@@ -390,6 +429,11 @@ ChooseTopics:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks a topic checkbox
+!! @hash 8dd70b1e
+!!!
+
+!! Toggle a topic's membership in the selection as its checkbox changes.
+
 TopicCheckboxClick:
     put index of TopicCheckbox into N
     put element N of TopicsAvailable into Text
@@ -406,6 +450,11 @@ TopicCheckboxClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks Select All in the Choose dialog
+!! @hash 35f62e41
+!!!
+
+!! Select every available topic in the picker.
+
 TopicsDialogSelectAllClick:
     put 0 into N
     while N is less than elements of TopicCheckbox
@@ -418,6 +467,11 @@ TopicsDialogSelectAllClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks Deselect All in the Choose dialog
+!! @hash 3fae421f
+!!!
+
+!! Clear every checkbox in the picker.
+
 TopicsDialogDeselectAllClick:
     put 0 into N
     while N is less than elements of TopicCheckbox
@@ -430,6 +484,11 @@ TopicsDialogDeselectAllClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the OK button in the Choose dialog
+!! @hash b5257db6
+!!!
+
+!! Confirm the selection: rebuild the stored topic list and close the dialog.
+
 TopicsDialogOKClick:
     enable QueryInput
     put empty into TopicsDisplayed
@@ -453,6 +512,13 @@ TopicsDialogOKClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the Send button
+!! @hash e1436bc5
+!!!
+
+!! Send a query to the server: plain text as-is, or prefixed with `LLM:` (and a much longer wait) for the AI button.
+!!
+!! The two button handlers share `DoQuerySend`, which also turns the query buttons amber while the request is in flight.
+
 SendQueryClick:
     clear LLMWaitLong
     go to DoQuerySend
@@ -481,6 +547,11 @@ DoQuerySend:
     go to WaitForReply
 
 ! Query-in-progress feedback: amber while waiting, red on failure
+!! @hash c4653d25
+!!!
+
+!! Query-in-progress feedback: amber while waiting, red on failure, normal when a reply lands.
+
 SetQueryWaiting:
     set style `background-color` of SendQueryButton to `#ffe08a`
     set style `background-color` of LLMQueryButton to `#ffe08a`
@@ -504,6 +575,11 @@ FailQueryButtons:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks an item in the results list
+!! @hash df5374e6
+!!!
+
+!! A result row was tapped: extract the doclet name and request its content.
+
 ResultsListClick:
     put index of DocletButton into N
     put element N of DocletList into Query
@@ -520,6 +596,11 @@ ResultsListClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the exit button
+!! @hash e493caba
+!!!
+
+!! Log and exit (kept for completeness; the UI has no exit button).
+
 ExitButtonClick:
 !    set property `topics` of Config to the text of TopicsLabel
     log Config
@@ -528,6 +609,13 @@ ExitButtonClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Wait for a reply. This may arrive in a different thread, so just save it
+!! @hash 0d250e99
+!!!
+
+!! Poll for the reply to the outstanding request.
+!!
+!! LLM queries get a ~4 minute allowance (the first call loads the model); plain queries keep the ~10 second wait. A timeout turns the query buttons red.
+
 WaitForReply:
     put 0 into WaitCount
     ! LLM queries need a much longer wait: the first call loads the model and
@@ -566,6 +654,13 @@ WaitForReply:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a received message
+!! @hash f32efd03
+!!!
+
+!! Dispatch a received reply according to the current state: topics, query results, doclet content, or the new/save/delete confirmations.
+!!
+!! The ANSWER| prefix marks a prose (LLM synthesis) reply, rendered as a block rather than a button list.
+
 ProcessMessage:
     gosub to ResetQueryButtons
     if State is `topics`
@@ -816,6 +911,11 @@ ProcessMessage:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Switch the doclet view into edit mode
+!! @hash d72c7cab
+!!!
+
+!! Toggle the doclet view between read mode and the edit textarea.
+
 DocletViewEditClick:
     if DocletViewMode is `view`
     begin
@@ -847,6 +947,11 @@ DocletViewEditClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Enable Save only when edit content differs from baseline MessageText
+!! @hash 3d344857
+!!!
+
+!! Enable Save only when the edit buffer differs from the last-loaded content.
+
 DocletEditChanged:
     if DocletViewMode is `edit`
     begin
@@ -864,6 +969,11 @@ DocletEditChanged:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Open the New doclet topic picker dialog
+!! @hash 5ea7d9fc
+!!!
+
+!! Open the new-doclet picker: choose a topic, or create directly when only one topic is selected.
+
 DocletViewNewClick:
     gosub to EnsureSaveAuthToken
     if SaveAuthToken is empty
@@ -921,6 +1031,11 @@ DocletViewNewClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Create immediately when a topic button is tapped
+!! @hash 2b6d12d7
+!!!
+
+!! Create in the tapped topic immediately, disabling the other topic buttons while the request is in flight.
+
 NewTopicButtonClick:
     if NewInFlight stop
     put index of NewTopicButton into N
@@ -946,6 +1061,11 @@ NewTopicButtonClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Cancel New doclet creation
+!! @hash 052c69e8
+!!!
+
+!! Cancel a pending new-doclet creation and restore the topic buttons.
+
 NewDocletCancelClick:
     clear NewInFlight
     clear NewRequestID
@@ -953,6 +1073,11 @@ NewDocletCancelClick:
     enable NewDocletCancel
     set style `display` of NewDocletDialogMask to `none`
     stop
+
+!! @hash 1724f77d
+!!!
+
+!! Restore the new-doclet topic buttons to their idle labels.
 
 ResetNewTopicButtons:
     put 0 into P
@@ -969,6 +1094,11 @@ ResetNewTopicButtons:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Create a New doclet in the selected topic
+!! @hash 11f9cf0e
+!!!
+
+!! Send the create request with a fresh request id, remembering the in-flight state.
+
 NewDocletCreateClick:
     if NewInFlight stop
     if NewDocletTopic is empty
@@ -994,6 +1124,11 @@ NewDocletCreateClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Save edited doclet content
+!! @hash bb61fdab
+!!!
+
+!! Send the edited content to the server for saving.
+
 DocletViewSaveClick:
     gosub to EnsureSaveAuthToken
     if SaveAuthToken is empty
@@ -1012,6 +1147,11 @@ DocletViewSaveClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Delete current doclet from prettified view
+!! @hash f34016aa
+!!!
+
+!! Confirm and request deletion of the current doclet.
+
 DocletViewDeleteClick:
     put confirm `Delete ` cat CurrentDocletName cat ` ?` into Text
     if Text is empty stop
@@ -1034,9 +1174,19 @@ DocletViewDeleteClick:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Close the doclet view popup
+!! @hash dbb10d00
+!!!
+
+!! Close the doclet view popup.
+
 DocletViewCloseClick:
     gosub to CloseDocletView
     stop
+
+!! @hash 3d7933ce
+!!!
+
+!! Restore the view popup to its idle state.
 
 CloseDocletView:
     enable QueryInput
@@ -1054,6 +1204,11 @@ CloseDocletView:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set the text of the topics label
+!! @hash 579f3953
+!!!
+
+!! Refresh the topics label and the send-button state after any selection change.
+
 UpdateTopicsLabel:
     if TopicsDisplayed is `null` clear TopicsDisplayed
     if TopicsDisplayed is `undefined` clear TopicsDisplayed
@@ -1089,6 +1244,11 @@ UpdateTopicsLabel:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Enable Send only when topics have loaded and at least one topic is chosen
+!! @hash d6fbe33b
+!!!
+
+!! Send is enabled only when topics have loaded and at least one is chosen.
+
 UpdateSendButtonState:
     if TopicsReady
     begin
@@ -1102,6 +1262,11 @@ UpdateSendButtonState:
     return
 
 ! Send a confirmation message
+!! @hash cef7aa8d
+!!!
+
+!! Send a confirm action back to the server (part of the topics handshake).
+
 SendConfirmation:
     send to ServerTopic
         sender MyTopic
@@ -1110,6 +1275,11 @@ SendConfirmation:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Triple-tap title to show/hide the tracer panel
+!! @hash fcc915f8
+!!!
+
+!! Triple-tap the title to show or hide the debug/tracer panel.
+
 TitleBannerClick:
     put now into DbgNow
     ! Handle both second-based and millisecond-based now values
@@ -1136,6 +1306,11 @@ TitleBannerClick:
     end
     stop
 
+!! @hash 06176d39
+!!!
+
+!! Show or hide the tracer row.
+
 ToggleDebugRow:
     if DbgRowVisible
     begin
@@ -1152,6 +1327,11 @@ ToggleDebugRow:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Ensure we have a save auth token (stored locally, prompt only if missing)
+!! @hash 7e467b8b
+!!!
+
+!! Fetch the saved auth token, prompting for one only when none is stored.
+
 EnsureSaveAuthToken:
     get SaveAuthToken from storage as `save-auth-token`
     if SaveAuthToken is `null` clear SaveAuthToken
@@ -1167,3 +1347,5 @@ EnsureSaveAuthToken:
         end
     end
     return
+!! @hash 1edc40f5
+!!!

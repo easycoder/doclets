@@ -112,3 +112,15 @@ Every request carries the caller's auth token as its first line
 Activity log: append-only JSONL at `~/.doclet-activity.log` recording
 create/modify/delete and permission denials (who did what and when; no
 reader tooling yet).
+
+## Editor support (doc blocks)
+
+Every section of `doclets.as` / `docletServer.as` is wrapped in an AllSpeak doc
+block (`!!` prose, `!! @hash`, `!!!`) so the code can be reviewed block by
+block in the AllSpeak editor (`edit.html` — vendored, along with `asedit.as`,
+`asedit.json`, `allspeak.js` and `plugins/`).
+
+After editing a `.as` file, refresh the section hashes and validate:
+
+    python3 asdoc-check.py --write doclets.as docletServer.as
+    python3 asdoc-check.py doclets.as docletServer.as   # expect 0 errors/warnings
