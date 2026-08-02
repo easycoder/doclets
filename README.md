@@ -124,3 +124,13 @@ After editing a `.as` file, refresh the section hashes and validate:
 
     python3 asdoc-check.py --write doclets.as docletServer.as
     python3 asdoc-check.py doclets.as docletServer.as   # expect 0 errors/warnings
+
+To open the editor (block mode), run the AllSpeak dev server from this
+directory — it provides the `/list`, `/read` and `/write` routes the editor
+needs to open and save files — then browse to `/edit.html`:
+
+    allspeak server.as
+
+(`server.as` is the dev file server for the editor; `docletServer.as` is the
+separate MQTT doclet server the deployed client talks to — don't confuse the
+two.)
