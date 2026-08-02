@@ -36,6 +36,7 @@ class FakeOllama:
         self.chat_payloads = []
         self.reply = 'NO_MATCHES'
         self.tags = []
+        self.embed_fail = False
 
     def get(self, url, timeout=None):
         if url.endswith('/api/tags'):
@@ -47,6 +48,8 @@ class FakeOllama:
             self.embed_calls += 1
             texts = json['input']
             self.embed_models.append(json['model'])
+            if self.embed_fail:
+                return FakeResp({"embeddings": []})  # simulates unavailable embeddings
             return FakeResp({"embeddings": [self._vec(t) for t in texts]})
         if url.endswith('/api/chat'):
             self.chat_calls += 1
@@ -186,6 +189,19 @@ def test_llm_nomatch_fallback(mgr, fake):
     print("OK  test_llm_nomatch_fallback (semantic pool when LLM declines)")
 
 
+def test_llm_nomatch_hint(base, fake):
+    # Embeddings unavailable → no semantic fallback → genuine LLM no-match.
+    # The reply should carry a re-run hint rather than a bare "no results".
+    cache_dir = base.parent / "emb3"
+    mgr = make_manager(base, cache_dir)
+    fake.embed_fail = True
+    fake.reply = "NO_MATCHES"
+    results = mgr.search_data("totally unrelated query zzz", use_llm=True)
+    assert len(results) == 1 and "answer" in results[0], results
+    assert "try" in results[0]["answer"].lower()
+    print("OK  test_llm_nomatch_hint (re-run hint on LLM no-match)")
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="doclets-test-"))
     try:
@@ -206,6 +222,7 @@ def main():
         test_answer_protocol(mgr, fake)
         test_llm_ready(mgr, fake)
         test_llm_nomatch_fallback(mgr, fake)
+        test_llm_nomatch_hint(base, fake)
         print("\nAll tests passed.")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

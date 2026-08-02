@@ -888,6 +888,14 @@ class DocletManager():
 
         if not matching_files:
             meta["status"] = "no_matches"
+            if use_llm:
+                # LLM responses vary between runs, so a re-run can legitimately
+                # find matches even when this run did not.
+                meta["answer"] = (
+                    "No matching doclets found. This was an LLM search, and LLM "
+                    "responses vary between runs — try running the query again, "
+                    "or rephrase it."
+                )
             return [], "no_matches", meta
 
         meta["status"] = "ok"
