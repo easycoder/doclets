@@ -728,15 +728,16 @@ class DocletManager():
         context = "\n".join(subjects)
         system = (
             "You are a helpful assistant for the user's private Markdown doclet "
-            "collection. Answer from the doclet list provided; be concise and "
-            "factual, and cite doclet filenames where relevant. If the list does "
-            "not cover the question, say so."
+            "collection. Answer concisely from the doclet list provided: at most "
+            "60-80 words, plain text, no preamble, no markdown headers. Do not "
+            "enumerate every doclet — cite at most 3-5 example filenames if useful, "
+            "or none for a simple count. If the list does not cover the question, "
+            "say so in one sentence."
         )
         user = (
             f"Here are all doclets in the selected topic(s):\n{context}\n\n"
             f"User question: {query}\n\n"
-            f"Answer the question (e.g. list the main topics covered, grouped "
-            f"with example doclet filenames)."
+            f"Answer the question concisely."
         )
         return self._ollama_chat(system, user)
 
