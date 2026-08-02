@@ -114,27 +114,32 @@ def test_semantic_llm_ranking(mgr, fake):
     # The candidate pool must have been semantic, not the raw corpus order.
     payload = fake.chat_payloads[-1]
     assert "260102-00.md" in payload["messages"][-1]["content"]
+    # Selection should be near-deterministic.
+    assert payload["options"]["temperature"] == 0.3
     print("OK  test_semantic_llm_ranking")
 
 
 def test_synthesis(mgr, fake):
-    for query in (
-        "List the main topics covered by doclets in the TestDocs topic",
-        "How many topics are there here?",
-    ):
-        fake.reply = f"answer-for-{query}"
-        # Prove no doclet bodies are read during synthesis.
-        reads = {"n": 0}
-        orig = mgr.read_doclet_content
-        mgr.read_doclet_content = lambda p: reads.__setitem__("n", reads["n"] + 1) or orig(p)
-        results = mgr.search_data(query, use_llm=True)
-        assert len(results) == 1 and "answer" in results[0], results
-        assert results[0]["answer"] == fake.reply
-        assert reads["n"] == 0, f"synthesis read {reads['n']} doclet bodies for {query!r}"
-        # Subjects must be in the prompt, bodies must not.
-        prompt = fake.chat_payloads[-1]["messages"][-1]["content"]
-        assert "260101-00.md: Linux kernel basics" in prompt
-        assert "Installing the kernel" not in prompt
+    reads = {"n": 0}
+    orig = mgr.read_doclet_content
+    mgr.read_doclet_content = lambda p: reads.__setitem__("n", reads["n"] + 1) or orig(p)
+    try:
+        for query in (
+            "List the main topics covered by doclets in the TestDocs topic",
+            "How many topics are there here?",
+        ):
+            reads["n"] = 0
+            fake.reply = f"answer-for-{query}"
+            results = mgr.search_data(query, use_llm=True)
+            assert len(results) == 1 and "answer" in results[0], results
+            assert results[0]["answer"] == fake.reply
+            assert reads["n"] == 0, f"synthesis read {reads['n']} doclet bodies for {query!r}"
+            # Subjects must be in the prompt, bodies must not.
+            prompt = fake.chat_payloads[-1]["messages"][-1]["content"]
+            assert "260101-00.md: Linux kernel basics" in prompt
+            assert "Installing the kernel" not in prompt
+    finally:
+        mgr.read_doclet_content = orig
     print("OK  test_synthesis (subjects-only, zero body reads; count-style routing)")
 
 
@@ -172,6 +177,15 @@ def test_llm_ready(mgr, fake):
     print("OK  test_llm_ready (bare-name vs :latest, not-pulled)")
 
 
+def test_llm_nomatch_fallback(mgr, fake):
+    fake.reply = "NO_MATCHES"  # fickle model run: refuses to pick
+    results, meta = mgr.search_data("Python MQTT messaging", use_llm=True, return_meta=True)
+    assert meta["matched_by"] == "semantic_fallback", meta
+    assert len(results) >= 1, results
+    assert results[0]["filename"] == "260102-00.md", results  # top semantic hit
+    print("OK  test_llm_nomatch_fallback (semantic pool when LLM declines)")
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="doclets-test-"))
     try:
@@ -191,6 +205,7 @@ def main():
         test_embed_cache_incremental(base, fake)
         test_answer_protocol(mgr, fake)
         test_llm_ready(mgr, fake)
+        test_llm_nomatch_fallback(mgr, fake)
         print("\nAll tests passed.")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -32,6 +32,7 @@ class DocletManager():
         self.llm_num_ctx = int(os.environ.get('DOCLETS_LLM_NUM_CTX', '8192'))
         self.llm_keep_alive = os.environ.get('DOCLETS_LLM_KEEP_ALIVE', '30m')
         self.llm_timeout = int(os.environ.get('DOCLETS_LLM_TIMEOUT', '120'))
+        self.llm_temperature = float(os.environ.get('DOCLETS_LLM_TEMPERATURE', '0.3'))
         self.embed_cache_dir = Path(os.environ.get('DOCLETS_EMBED_CACHE', str(Path.home() / '.doclet-embeddings')))
         markers = os.environ.get(
             'DOCLETS_LLM_SYNTH',
@@ -545,7 +546,7 @@ class DocletManager():
                     {"role": "user", "content": user},
                 ],
                 "stream": False,
-                "options": {"num_ctx": self.llm_num_ctx},
+                "options": {"num_ctx": self.llm_num_ctx, "temperature": self.llm_temperature},
                 "keep_alive": self.llm_keep_alive,
                 # Qwen-family models default to thinking mode; disable it for
                 # fast interactive ranking. Harmless if the model ignores it.
@@ -844,6 +845,8 @@ class DocletManager():
                 deterministic_matches.append((filepath, fname, subject))
 
         llm_matches = []
+        pool = []
+        semantic_pool = False
         if use_llm:
             # Candidate pool: literal matches if any; otherwise semantic
             # retrieval (cached embeddings) so the LLM sees relevant doclets
@@ -852,13 +855,15 @@ class DocletManager():
             if deterministic_matches:
                 candidate_pool = deterministic_matches
             else:
-                candidate_pool = self.semantic_search(qnorm, doclets=doclets)
-                if not candidate_pool:
+                semantic = self.semantic_search(qnorm, doclets=doclets)
+                if semantic:
+                    candidate_pool = semantic
+                    semantic_pool = True
+                else:
                     candidate_pool = doclets[:self.llm_top_k]
 
             # Deduplicate and bound the pool sent to the LLM.
             seen = set()
-            pool = []
             for c in candidate_pool:
                 if c[1] in seen:
                     continue
@@ -869,10 +874,17 @@ class DocletManager():
 
             llm_matches = self._llm_rank(pool, qnorm)
 
-        matching_files = llm_matches if use_llm and llm_matches else deterministic_matches
+        matching_files = llm_matches if llm_matches else deterministic_matches
+        if use_llm and not matching_files and semantic_pool and pool:
+            # The LLM declined (or failed); fall back to the embedding-retrieved
+            # candidates so a fickle model doesn't turn a good query into
+            # "no results". The pool is already relevance-ranked.
+            matching_files = pool[:5]
+            meta["matched_by"] = "semantic_fallback"
+        else:
+            meta["matched_by"] = "llm" if use_llm and llm_matches else "deterministic"
 
         meta["match_count"] = len(matching_files)
-        meta["matched_by"] = "llm" if use_llm and llm_matches else "deterministic"
 
         if not matching_files:
             meta["status"] = "no_matches"

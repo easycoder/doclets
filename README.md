@@ -54,7 +54,9 @@ any query with `LLM:`). With the LLM button:
   reads, so this scales with the corpus).
 - **Semantic searches** with no literal match (e.g. "Python MQTT messaging")
   are retrieved by embedding similarity over a per-topic cached index, then
-  ranked by the model.
+  ranked by the model. If the model declines to pick (or errors), the
+  embedding-retrieved candidates are returned instead — so a fickle model
+  can't turn a good query into "no results".
 - Plain queries keep their existing behaviour: filename lookup, or complete
   literal substring matching.
 
@@ -72,6 +74,7 @@ The doclet server reads its LLM configuration from environment variables:
 | `DOCLETS_LLM_NUM_CTX` | `8192` |
 | `DOCLETS_LLM_KEEP_ALIVE` | `30m` |
 | `DOCLETS_LLM_TIMEOUT` | `120` |
+| `DOCLETS_LLM_TEMPERATURE` | `0.3` — lower = more deterministic ranking; raise for more variety |
 | `DOCLETS_EMBED_CACHE` | `~/.doclet-embeddings` |
 | `DOCLETS_LLM_SYNTH` | synthesis-query markers (comma-separated) |
 | `DOCLETS_LLM_WARMUP` | `0` — set `1` to load the model at server startup so the first query is fast |
