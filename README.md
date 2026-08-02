@@ -45,8 +45,8 @@ Targets, in order of precedence:
 
 ## Local LLM search (experimental)
 
-The query box has an **AI** checkbox (or prefix any query with `LLM:`). With it
-checked:
+The query bar has two buttons — **Plain query** and **LLM query** (or prefix
+any query with `LLM:`). With the LLM button:
 
 - **Synthesis questions** — "list the main topics covered by doclets in the
   Linux topic", "summarize what these doclets cover" — are answered by the
@@ -55,8 +55,11 @@ checked:
 - **Semantic searches** with no literal match (e.g. "Python MQTT messaging")
   are retrieved by embedding similarity over a per-topic cached index, then
   ranked by the model.
-- Plain (unchecked) queries keep their existing behaviour: filename lookup, or
-  complete literal substring matching.
+- Plain queries keep their existing behaviour: filename lookup, or complete
+  literal substring matching.
+
+While a query is in flight the two query buttons turn amber and are disabled;
+if it fails (timeout) they turn red.
 
 The doclet server reads its LLM configuration from environment variables:
 

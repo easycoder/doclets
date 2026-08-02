@@ -37,7 +37,7 @@
     button DocletButton
     input QueryInput
     input TopicCheckbox
-    input LLMQueryCheckbox
+    button LLMQueryButton
 
     topic MyTopic
     topic ServerTopic
@@ -257,7 +257,7 @@ SetupScreen:
     attach DebugRow to `allspeak-tracer`
     attach TopicList to `TopicList`
     attach QueryInput to `QueryInput`
-    attach LLMQueryCheckbox to `LLMQueryCheckbox`
+    attach LLMQueryButton to `LLMQueryButton`
     attach TopicsDialogMask to `TopicsDialogMask`
     attach TopicsDialogList to `TopicsDialogList`
     attach TopicItemTemplate to `TopicItemTemplate`
@@ -285,6 +285,7 @@ SetupScreen:
     on click TitleBanner go to TitleBannerClick
     on click ChooseTopicsButton go to ChooseTopics
     on click SendQueryButton go to SendQueryClick
+    on click LLMQueryButton go to LLMQueryClick
     on click NewDocletButton go to DocletViewNewClick
     on click TopicsDialogSelectAll go to TopicsDialogSelectAllClick
     on click TopicsDialogDeselectAll go to TopicsDialogDeselectAllClick
@@ -447,26 +448,53 @@ TopicsDialogOKClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks the Send button
 SendQueryClick:
+    clear LLMWaitLong
+    go to DoQuerySend
+
+LLMQueryClick:
+    set LLMWaitLong
+    go to DoQuerySend
+
+! Shared query send: LLM mode adds the `LLM:` prefix and a longer wait
+DoQuerySend:
     enable QueryInput
     put QueryInput into Query
-    if LLMQueryCheckbox
+    if LLMWaitLong
     begin
         put `LLM:` cat Query into Query
-        set LLMWaitLong
-    end
-    else
-    begin
-        clear LLMWaitLong
     end
     put `query` into State
     clear DocletListPanel
     put empty into ReceivedMessage
+    gosub to SetQueryWaiting
     log `Send ` cat Query
     send to ServerTopic
         sender MyTopic
         action `query`
         message TopicsDisplayed cat `|` cat Query
     go to WaitForReply
+
+! Query-in-progress feedback: amber while waiting, red on failure
+SetQueryWaiting:
+    set style `background-color` of SendQueryButton to `#ffe08a`
+    set style `background-color` of LLMQueryButton to `#ffe08a`
+    disable SendQueryButton
+    disable LLMQueryButton
+    return
+
+ResetQueryButtons:
+    set style `background-color` of SendQueryButton to ``
+    set style `background-color` of LLMQueryButton to ``
+    enable SendQueryButton
+    enable LLMQueryButton
+    return
+
+FailQueryButtons:
+    set style `background-color` of SendQueryButton to `#ff9c9c`
+    set style `background-color` of LLMQueryButton to `#ff9c9c`
+    enable SendQueryButton
+    enable LLMQueryButton
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks an item in the results list
@@ -515,6 +543,7 @@ WaitForReply:
         begin
             log `Timeout waiting for response`
             clear LLMWaitLong
+            gosub to FailQueryButtons
             enable QueryInput
             remove attribute `disabled` of QueryInput
             if State is `new`
@@ -532,6 +561,7 @@ WaitForReply:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a received message
 ProcessMessage:
+    gosub to ResetQueryButtons
     if State is `topics`
     begin
         if Action is `confirm` gosub to SendQueryButtonConfirmation

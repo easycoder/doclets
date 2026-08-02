@@ -91,45 +91,59 @@
         "#element": "div",
         "@id": "QueryPanel",
         "position": "relative",
-        "height": "3em",
-        "flex": "0 0 3em",
+        "height": "auto",
+        "min-height": "6em",
+        "flex": "0 0 auto",
         "display": "flex",
         "flex-direction": "row",
-        "align-items": "center",
+        "align-items": "stretch",
         "gap": "0.5em",
         "padding": "0.4em",
         "box-sizing": "border-box",
-        "#": ["$QueryInput", "$SendButton", "$NewButton", "$AIButton"],
+        "#": ["$QueryInput", "$ButtonColumn"],
 
         "$QueryInput": {
-            "#element": "input",
+            "#element": "textarea",
             "@id": "QueryInput",
-            "@type": "text",
+            "@rows": "3",
             "@placeholder": "Enter query",
             "flex": 1,
-            "height": "2.2em",
             "box-sizing": "border-box",
-            "padding": "0 0.6em"
+            "padding": "0.4em 0.6em",
+            "resize": "vertical",
+            "font-family": "inherit",
+            "font-size": "inherit"
         },
 
-        "$AIButton": {
-            "#element": "input",
-            "@id": "LLMQueryCheckbox",
-            "@type": "checkbox",
-            "title": "Ask the local LLM (semantic search / summaries)",
-            "height": "1.4em",
-            "width": "1.4em",
-            "cursor": "pointer",
-            "flex": "0 0 auto"
+        "$ButtonColumn": {
+            "#element": "div",
+            "display": "flex",
+            "flex-direction": "column",
+            "justify-content": "center",
+            "gap": "0.4em",
+            "flex": "0 0 auto",
+            "width": "7.5em",
+            "#": ["$PlainButton", "$LLMButton", "$NewButton"]
         },
 
-        "$SendButton": {
+        "$PlainButton": {
             "#element": "button",
             "@id": "SendQueryButton",
-            "#content": "Query",
+            "#content": "Plain query",
             "height": "2.2em",
-            "padding": "0 1em",
-            "cursor": "pointer"
+            "padding": "0 0.5em",
+            "cursor": "pointer",
+            "box-sizing": "border-box"
+        },
+
+        "$LLMButton": {
+            "#element": "button",
+            "@id": "LLMQueryButton",
+            "#content": "LLM query",
+            "height": "2.2em",
+            "padding": "0 0.5em",
+            "cursor": "pointer",
+            "box-sizing": "border-box"
         },
 
         "$NewButton": {
