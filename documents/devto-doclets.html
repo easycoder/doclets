@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From documentation chaos to a searchable document server for small teams</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         max-width: 720px; margin: 0 auto; padding: 24px 20px 80px;
+         line-height: 1.6; color: #1a1a1a; }
+  h1 { font-size: 1.9em; line-height: 1.25; margin-bottom: 0.2em; }
+  .subtitle { color: #555; font-size: 1.05em; }
+  h2 { margin-top: 1.6em; border-bottom: 1px solid #e2e2e2; padding-bottom: 4px; }
+  img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 6px;
+        display: block; margin: 1.2em auto; }
+  code { background: #f3f3f3; padding: 0.1em 0.35em; border-radius: 4px;
+         font-size: 0.92em; }
+  a { color: #0969da; }
+</style>
+</head>
+<body>
+<h1>From documentation chaos to a searchable document server for small teams</h1>
+<p class="subtitle">A personal documentation mess — emails, Joplin, WhatsApp, dev.to posts — became Doclets: a full-stack AllSpeak app with content search, local-LLM queries, and per-topic access control.</p>
+<p>A while back I wrote that I produce a lot of documentation but had no strategy for organising it. Emails, web pages, Markdown notes in Joplin, WhatsApp messages, dev.to posts of my own — it was a largely unsearchable mass of information. Every fact I needed lived somewhere; none of it was findable.</p>
+<p>Doclets started as an AllSpeak coding exercise. It became the tool that brought order to that chaos — and, six months on, it has quietly turned into something a small team could genuinely use.</p>
+<h2>What Doclets is</h2>
+<p>Doclets is a central, searchable repository of Markdown documents ("doclets"), organised into topics and years. You read and edit doclets in a browser on any device; a small server process owns the documents and talks to the browser over MQTT.</p>
+<p><img src="screenshot-reader.png" alt="Screenshot: the Doclets reader showing the topic list and query bar"></p>
+<p>The two things that make it more than a notes folder are <em>finding</em> and <em>sharing</em>.</p>
+<h2>Finding things</h2>
+<p>Plain search is a simple substring match over every doclet's title and content — nothing clever, but it works, and it already beat the alternative (not being able to find things at all).</p>
+<p>More recently I added a second way to search: a local language model. Tick "LLM query" and you can ask questions like <em>"list the main topics covered by the doclets in the Linux topic"</em> and get a short prose answer derived from the collection's subjects, or <em>"find the doclets that include a proposed letter of introduction"</em> and get the matching documents back. The model runs on your own machine via Ollama — no cloud, no per-query cost — and every doclet is indexed by a small embedding model, so searching doesn't mean reading the whole database on each query.</p>
+<p><img src="screenshot-llm.png" alt="Screenshot: an LLM query returning a concise answer"></p>
+<h2>Sharing with a small team</h2>
+<p>None of the tools that held my scattered notes offered the same ease of use — and few could operate across the internet. Doclets is a central repository, so the same collection is reachable from any browser, anywhere.</p>
+<p>If you want to share that repository with colleagues, each topic can have an owner and a visibility:</p>
+<ul>
+  <li><strong>public</strong> topics are readable by anyone with the link</li>
+  <li><strong>private</strong> topics are readable only by the owner and named readers</li>
+  <li>creating/modifying is controlled by per-user grants, deleting by its own separate grant</li>
+  <li>a simple activity log records who did what, and when</li>
+</ul>
+<p>Identity is a token phrase — nothing to install, nothing to configure beyond a small JSON file of permissions.</p>
+<p><img src="screenshot-acl.png" alt="Screenshot: the per-topic access control file"></p>
+<h2>Why the construction matters</h2>
+<p>Doclets is also a good illustration of building a real application in AllSpeak, and the way it is put together is one of the reasons it stayed maintainable:</p>
+<ul>
+  <li><strong>One language, full stack.</strong> The browser client (<code>doclets.as</code>) and the server (<code>docletServer.as</code>) are both AllSpeak. One person can understand and change the entire system — UI, messaging, backend — without a conventional web framework or a second client language.</li>
+  <li><strong>Declarative screens.</strong> The UI is defined as Webson JSON, not hand-written DOM code — easy to read, easy for AI tools to generate.</li>
+  <li><strong>MQTT instead of REST.</strong> The browser and server talk over MQTT request/reply, which works naturally across the internet and on phones.</li>
+  <li><strong>A clear plugin boundary.</strong> The one genuinely heavy part — managing, searching and securing the document collection, plus the LLM integration — lives in a small Python plugin that exposes simple AllSpeak commands like <code>doclets query</code> and <code>doclets topics</code>. The scripting language stays readable; the native code stays isolated.</li>
+  <li><strong>Features that arrive as additions, not rewrites.</strong> Semantic LLM search and per-topic access control were bolted on over time without disturbing the original design — a sign the structure is doing its job.</li>
+</ul>
+<p>Because AllSpeak separates language from logic, the same application could be presented in French, Arabic or any other language via a language pack — a property that also happens to be at the heart of why AllSpeak exists.</p>
+<h2>Running it</h2>
+<p>The server is a single Python process (the <code>allspeak</code> runtime) plus an MQTT broker; the client is static files on any web host. If you want the LLM features, you add Ollama with a small model — again, all local.</p>
+<p><img src="screenshot-server.png" alt="Screenshot: the doclets server console showing MQTT connect and an LLM query"></p>
+<p>Six months ago my documentation was a scattered mess. Today I can find any of it in seconds, and I can share the collection with people who need it without giving them the mess. If you have the same problem, Doclets is a good place to start — and if you are curious about AllSpeak, it is a working example of what the platform can do.</p>
+<!--
+Editor notes:
+- Replace the four screenshot placeholders with real images (dev.to: upload in the editor and use the generated URLs, or commit images and set cover_image).
+- Keep the description under ~150 characters for previews.
+- Tags: max 4, lowercase, no spaces (currently: allspeak, documentation, lowcode, programming).
+- Optional front matter: canonical_url, cover_image, series.
+-->
+</body>
+</html>
