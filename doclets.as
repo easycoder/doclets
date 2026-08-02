@@ -549,7 +549,8 @@ ProcessMessage:
         enable QueryInput
         if left 7 of ReceivedMessage is `ANSWER|`
         begin
-            put from 8 of ReceivedMessage into Text
+            ! `from N of` is 0-based (substr), so 7 skips the 7-char `ANSWER|` marker.
+            put from 7 of ReceivedMessage into Text
             replace newline with `<br>` in Text
             set content of DocletListPanel to `<div style='padding:1em;font-size:1.05em;line-height:1.5;word-wrap:break-word;'>` cat Text cat `</div>`
             stop
