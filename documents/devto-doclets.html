@@ -22,19 +22,20 @@
 <h1>AI writes the code, humans review it — review is the coming skill</h1>
 <p class="subtitle">AI writes the code; humans review it. Recognition is easier than creation when the language is close to human language.</p>
 <p>Most articles on dev.to are about coding. This one is not. It is about the entire process of producing software in a world where AI does the coding and humans do the reviewing. That reversal is the whole point, and it has consequences for which skills matter.</p>
+<p>This is a personal view, and it is meant to be argued with.</p>
 <h2>Recognition is easier than writing</h2>
-<p>There is no imperative for you to learn to write AllSpeak — you will never be asked to. Your job is to recognise code presented in the language. Recognition is a far simpler task than writing, and it becomes more and more effective the closer the language approaches that of human languages.</p>
+<p>There is no imperative for you to learn to write AllSpeak — you are unlikely ever to be asked to. Your job is to recognise code presented in the language. Recognition is a far simpler task than writing, and it becomes more and more effective the closer the language approaches that of human languages.</p>
 <p>When you read a book on an unfamiliar subject, you consult a dictionary for the terms you don't know. Here the dictionary is an AI agent: an unfamiliar construct in the code is just a question away. "What is this block doing?" — and the agent explains it in plain language. Recognition, assisted by the dictionary, is enough to review what was written.</p>
 <h2>Why programmers resist</h2>
-<p>This is hard for most programmers to comprehend, so used are they to regarding code as something they own themselves. "Reading the code" has always been unpopular, and mostly for good reason. That has the potential to change dramatically if AI writes code in a more accessible language.</p>
-<p>I deliberately avoid the word "programmer" here, because in this scenario programmers, as such, effectively cease to exist. The people who remain are engineers — and the skill they need is judgment, not syntax.</p>
+<p>Most programmers find this hard to accept — so used are they to regarding code as something they own. "Reading the code" has always been unpopular, and mostly for good reason. Every cycle, someone promises readable code and fails to deliver — so the scepticism is earned. The difference this time is that the code is no longer written by hand at all.</p>
+<p>I deliberately avoid the word "programmer" here, because in this scenario the term stops being useful. The people who remain are engineers — and the skill they need is judgment, not syntax.</p>
 <h2>Review is the coming skill</h2>
-<p>It is widely accepted that there are fewer and fewer opportunities to gain coding expertise. Review is the coming skill, and if toolchains remain as they are now, there will be few who possess it effectively.</p>
-<p>The only alternative to accepting — and embracing — the need for more accessible forms of language is to abdicate the entire process of software generation. That is a dangerous path, and one humans must avoid if they are to retain relevance in the world of tomorrow.</p>
+<p>It is widely accepted that there are fewer and fewer opportunities to gain coding expertise. Review is the coming skill — and if toolchains remain as they are now, few will possess it effectively unless the language of code moves closer to human language.</p>
+<p>The only alternative to accepting — and embracing — more accessible forms of language is to abdicate software generation to machines entirely. That is not a future most of us would choose willingly — and it is the default if we do nothing.</p>
 <h2>AllSpeak is a first step, not a destination</h2>
-<p>AllSpeak is not a final destination; it is a first step towards a new paradigm, one that must gradually become familiar to engineers. The closer the language comes to a human language, the more effective recognition becomes, and the less the code feels like someone else's possession.</p>
+<p>AllSpeak is not a final destination; it is a first step towards a new paradigm, one that must gradually become familiar to engineers. The closer the language comes to a human language, the more effective recognition becomes, and the less foreign the code feels.</p>
 <h2>The illustration: Doclets</h2>
-<p>The rest of this article is about Doclets, a working example of the pattern. Doclets was neither hand-coded nor vibe-coded: it was produced through exactly the process described above — AI writes, human reviews, block by block. It is an example of a pattern — maybe the only pattern that acknowledges the gap between coding and review and points the way to bridging it.</p>
+<p>The rest of this article is about Doclets, a working example of the pattern. Doclets was neither hand-coded nor vibe-coded: it was produced through exactly the process described above — AI writes, human reviews, block by block. It is an example of a pattern — one of the few patterns that explicitly acknowledges the gap between coding and review and points the way to bridging it.</p>
 <p>Doclets is a central, searchable repository of Markdown documents ("doclets"), organised into topics and years, read and edited in a browser on any device. A small server process owns the documents and talks to the browser over MQTT.</p>
 <p><img src="screenshot-reader.png" alt="Screenshot: the Doclets reader showing the topic list and query bar"></p>
 <p>Plain search is a substring match over every doclet's title and content. A second way to search uses a local language model: tick "LLM query" and ask questions like <em>"list the main topics covered by the doclets in the Linux topic"</em> — a short prose answer comes back, derived from the collection itself, running entirely on your own machine.</p>
@@ -43,8 +44,8 @@
 <p>The construction is deliberately unremarkable — one language for the whole stack (the browser client and the server are both AllSpeak), screens defined declaratively, MQTT for request/reply, and the one heavy component (searching, securing, and the LLM integration) consigned to a plugin with a small vocabulary of its own.</p>
 <p>This is a general picture, not a specification — the details live in the repository.</p>
 <h2>Ask your agent</h2>
-<p>If you want the detail, point your AI agent at the <a href="https://github.com/easycoder/doclets">Doclets repository</a> and ask for a synopsis, a full technical breakdown, or anything in between. Every section of the code carries a doc block explaining <em>why</em> it exists, so the agent — and you — can read it block by block. Recognition, assisted by the dictionary, all the way down.</p>
-<p>Code was never the product; the product is what the code does. If AI writes the code and we review it well, software production becomes a skill of judgment rather than of syntax. That is a change worth embracing.</p>
+<p>If you want the detail, point your AI agent at the <a href="https://github.com/easycoder/doclets">Doclets repository</a> and ask for a synopsis, a full technical breakdown, or anything in between. Every section of the code carries a doc block explaining <em>why</em> it exists, so the agent — and you — can read it block by block. Recognition, with the dictionary always at hand.</p>
+<p>The code is not the point; what the code does is the point. If AI writes the code and we review it well, software production becomes a skill of judgment rather than of syntax. That is a change worth embracing.</p>
 <!--
 Editor notes:
 - Replace the two screenshot placeholders with real images (dev.to: upload in the editor and use the generated URLs).
