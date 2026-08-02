@@ -112,22 +112,24 @@ def test_semantic_llm_ranking(mgr, fake):
 
 
 def test_synthesis(mgr, fake):
-    fake.reply = ("The corpus covers kernel basics, MQTT example code, "
-                  "network configuration, and backup strategies.")
-    # Prove no doclet bodies are read during synthesis.
-    reads = {"n": 0}
-    orig = mgr.read_doclet_content
-    mgr.read_doclet_content = lambda p: reads.__setitem__("n", reads["n"] + 1) or orig(p)
-    results = mgr.search_data(
-        "List the main topics covered by doclets in the TestDocs topic", use_llm=True)
-    assert len(results) == 1 and "answer" in results[0], results
-    assert results[0]["answer"] == fake.reply
-    assert reads["n"] == 0, f"synthesis read {reads['n']} doclet bodies"
-    # Subjects must be in the prompt, bodies must not.
-    prompt = fake.chat_payloads[-1]["messages"][-1]["content"]
-    assert "260101-00.md: Linux kernel basics" in prompt
-    assert "Installing the kernel" not in prompt
-    print("OK  test_synthesis (subjects-only, zero body reads)")
+    for query in (
+        "List the main topics covered by doclets in the TestDocs topic",
+        "How many topics are there here?",
+    ):
+        fake.reply = f"answer-for-{query}"
+        # Prove no doclet bodies are read during synthesis.
+        reads = {"n": 0}
+        orig = mgr.read_doclet_content
+        mgr.read_doclet_content = lambda p: reads.__setitem__("n", reads["n"] + 1) or orig(p)
+        results = mgr.search_data(query, use_llm=True)
+        assert len(results) == 1 and "answer" in results[0], results
+        assert results[0]["answer"] == fake.reply
+        assert reads["n"] == 0, f"synthesis read {reads['n']} doclet bodies for {query!r}"
+        # Subjects must be in the prompt, bodies must not.
+        prompt = fake.chat_payloads[-1]["messages"][-1]["content"]
+        assert "260101-00.md: Linux kernel basics" in prompt
+        assert "Installing the kernel" not in prompt
+    print("OK  test_synthesis (subjects-only, zero body reads; count-style routing)")
 
 
 def test_embed_cache_incremental(base, fake):
@@ -160,7 +162,7 @@ def main():
         base = make_corpus(tmp)
         cache_dir = tmp / "emb"
         os.environ['DOCLETS_OLLAMA_URL'] = 'http://fake:11434'
-        os.environ['DOCLETS_LLM_SYNTH'] = 'list the main topics,main topics,topics covered,what topics,which topics,summar,overview,categories,outline,what is covered,structure of the'
+        os.environ['DOCLETS_LLM_SYNTH'] = 'list the main topics,main topics,topics covered,what topics,which topics,how many,number of topics,count the,summar,overview,categories,outline,what is covered,what\'s here,what is here,structure of the'
         global VOCAB
         mgr = make_manager(base, cache_dir)
         fake = FakeOllama()

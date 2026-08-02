@@ -1,4 +1,4 @@
-!   doclets.as - the Doclet UI
+!   doclets.ecs - the Doclet UI
 
     script Doclets
 
@@ -37,7 +37,6 @@
     button DocletButton
     input QueryInput
     input TopicCheckbox
-    input LLMQueryCheckbox
 
     topic MyTopic
     topic ServerTopic
@@ -79,8 +78,6 @@
     variable DbgLastTap
     variable DbgNow
     variable DbgRowVisible
-    variable MaxWait
-    variable LLMWaitLong
 
     variable MainScreenWebson
 
@@ -254,10 +251,9 @@ SetupScreen:
 	render MainScreenWebson in Body
 
     attach TitleBanner to `rbr-banner`
-    attach DebugRow to `allspeak-tracer`
+    attach DebugRow to `easycoder-tracer`
     attach TopicList to `TopicList`
     attach QueryInput to `QueryInput`
-    attach LLMQueryCheckbox to `LLMQueryCheckbox`
     attach TopicsDialogMask to `TopicsDialogMask`
     attach TopicsDialogList to `TopicsDialogList`
     attach TopicItemTemplate to `TopicItemTemplate`
@@ -449,15 +445,6 @@ TopicsDialogOKClick:
 SendQueryClick:
     enable QueryInput
     put QueryInput into Query
-    if LLMQueryCheckbox
-    begin
-        put `LLM:` cat Query into Query
-        set LLMWaitLong
-    end
-    else
-    begin
-        clear LLMWaitLong
-    end
     put `query` into State
     clear DocletListPanel
     put empty into ReceivedMessage
@@ -496,23 +483,12 @@ ExitButtonClick:
 !   Wait for a reply. This may arrive in a different thread, so just save it
 WaitForReply:
     put 0 into WaitCount
-    ! LLM queries need a much longer wait: the first call loads the model and
-    ! embeds the topic (can take a minute), while plain queries answer in ~1s.
-    if LLMWaitLong
-    begin
-        put 1200 into MaxWait
-    end
-    else
-    begin
-        put 100 into MaxWait
-    end
     while ReceivedMessage is empty
     begin
         add 1 to WaitCount
-        if WaitCount is greater than MaxWait
+        if WaitCount is greater than 100
         begin
             log `Timeout waiting for response`
-            clear LLMWaitLong
             enable QueryInput
             remove attribute `disabled` of QueryInput
             if State is `new`
@@ -545,13 +521,6 @@ ProcessMessage:
     else if State is `query`
     begin
         enable QueryInput
-        if left 7 of ReceivedMessage is `ANSWER|`
-        begin
-            put from 8 of ReceivedMessage into Text
-            replace newline with `<br>` in Text
-            set content of DocletListPanel to `<div style='padding:1em;font-size:1.05em;line-height:1.5;word-wrap:break-word;'>` cat Text cat `</div>`
-            stop
-        end
         if ReceivedMessage is `[]`
         begin
             set content of DocletListPanel to `<div style='font-size:1.3em;font-weight:bold;text-align:center;padding-top:1em;'>No matching doclets</div>`

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Doclet Search and Management for AllSpeak
+Doclet Search and Management for EasyCoder
 """
-import os
 import sys
 import json
 import re
@@ -17,27 +16,16 @@ except Exception:
     requests = None
 
 class DocletManager():
-    def __init__(self, doclets_dir: str = None, ollama_url: str = None): # type: ignore
+    def __init__(self, doclets_dir: str = None, ollama_url: str = "http://localhost:11434"): # type: ignore
         """Initialize the doclet manager
         
         Args:
             doclets_dir: Root directory or comma-separated list of directories containing year folders
-            ollama_url: URL of the local Ollama API (default: DOCLETS_OLLAMA_URL env, else http://localhost:11434)
+            ollama_url: URL of the local Ollama API
         """
         self.set_doclets_dirs(doclets_dir if doclets_dir else "")
-        self.ollama_url = ollama_url or os.environ.get('DOCLETS_OLLAMA_URL', 'http://localhost:11434')
-        self.model = os.environ.get('DOCLETS_LLM_MODEL', 'qwen3.5:9b')  # Generation model
-        self.embed_model = os.environ.get('DOCLETS_EMBED_MODEL', 'nomic-embed-text')  # Embedding model
-        self.llm_top_k = int(os.environ.get('DOCLETS_LLM_TOP_K', '20'))
-        self.llm_num_ctx = int(os.environ.get('DOCLETS_LLM_NUM_CTX', '8192'))
-        self.llm_keep_alive = os.environ.get('DOCLETS_LLM_KEEP_ALIVE', '30m')
-        self.llm_timeout = int(os.environ.get('DOCLETS_LLM_TIMEOUT', '120'))
-        self.embed_cache_dir = Path(os.environ.get('DOCLETS_EMBED_CACHE', str(Path.home() / '.doclet-embeddings')))
-        markers = os.environ.get(
-            'DOCLETS_LLM_SYNTH',
-            'list the main topics,main topics,topics covered,what topics,which topics,how many topics,how many,number of topics,count the,summar,overview,categories,outline,what is covered,what\'s here,what is here,structure of the'
-        )
-        self.synth_markers = tuple(m.strip().lower() for m in markers.split(',') if m.strip())
+        self.ollama_url = ollama_url
+        self.model = "llama3.2"  # Default model, can be changed
     
     def set_doclets_dirs(self, doclets_dir: str):
         """Set doclet directories from comma-separated list of paths or topic names.
@@ -531,223 +519,37 @@ class DocletManager():
         
         return "\n".join(context_parts)
     
-    def _ollama_chat(self, system: str, user: str, model: str = None) -> str:
-        """Chat completion via Ollama /api/chat (streaming off)."""
+    def query_llm(self, prompt: str, model: str = None) -> str: # type: ignore
+        """Query the local Ollama LLM
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            model: Model name (defaults to self.model)
+            
+        Returns:
+            Response text from the LLM
+        """
         if model is None:
             model = self.model
+
         if requests is None:
             return "Error querying LLM: requests is not installed"
+            
         try:
-            body = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                "stream": False,
-                "options": {"num_ctx": self.llm_num_ctx},
-                "keep_alive": self.llm_keep_alive,
-                # Qwen-family models default to thinking mode; disable it for
-                # fast interactive ranking. Harmless if the model ignores it.
-                "think": False,
-            }
             response = requests.post(
-                f"{self.ollama_url}/api/chat",
-                json=body,
-                timeout=self.llm_timeout,
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": prompt,
+                    "stream": False
+                },
+                timeout=60
             )
             response.raise_for_status()
             result = response.json()
-            return result.get('message', {}).get('content', '').strip()
+            return result.get('response', '').strip()
         except requests.exceptions.RequestException as e:
             return f"Error querying LLM: {e}"
-
-    def warmup_llm(self) -> None:
-        """Load the generation model into memory so the first query is fast.
-
-        Opt-in via DOCLETS_LLM_WARMUP=1 (the service can take an extra tens of
-        seconds to start while the model loads).
-        """
-        start = time.time()
-        reply = self._ollama_chat("You are a helpful assistant.", "Warm-up ping. Reply with OK.")
-        if reply.startswith('Error querying LLM'):
-            print(f"[LLM] warmup failed: {reply}")
-        else:
-            print(f"[LLM] warmup done in {time.time() - start:.1f}s")
-
-    def query_llm(self, prompt: str, model: str = None) -> str: # type: ignore
-        """Backwards-compatible wrapper around _ollama_chat for callers that
-        use the old single-prompt API."""
-        return self._ollama_chat("You are a precise doclet search helper.", prompt, model=model)
-
-    def _ollama_embed(self, texts: List[str]) -> Optional[List[List[float]]]:
-        """Embed a batch of texts via Ollama /api/embed. None on failure."""
-        if requests is None:
-            return None
-        try:
-            response = requests.post(
-                f"{self.ollama_url}/api/embed",
-                json={"model": self.embed_model, "input": texts},
-                timeout=self.llm_timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
-            embeddings = data.get('embeddings')
-            if isinstance(embeddings, list) and len(embeddings) == len(texts):
-                return embeddings  # type: ignore
-            # Some server versions return a single vector for a single input.
-            if len(texts) == 1 and embeddings and isinstance(embeddings[0], (int, float)):
-                return [embeddings]  # type: ignore
-            return None
-        except Exception as e:
-            print(f"[LLM] embedding error: {e}")
-            return None
-
-    @staticmethod
-    def _cosine(a: List[float], b: List[float]) -> float:
-        import math
-        dot = sum(x * y for x, y in zip(a, b))
-        na = math.sqrt(sum(x * x for x in a))
-        nb = math.sqrt(sum(x * x for x in b))
-        if na == 0.0 or nb == 0.0:
-            return 0.0
-        return dot / (na * nb)
-
-    def _embedding_cache_path(self, label: str) -> Path:
-        safe = re.sub(r'[^A-Za-z0-9_.-]', '_', label) or 'root'
-        return self.embed_cache_dir / f"{safe}.json"
-
-    def _ensure_embeddings(self, doclets: List[Tuple[Path, str, str]]) -> Optional[Dict[str, List[float]]]:
-        """Build/refresh the on-disk embedding cache for the given doclet set.
-
-        Only doclets whose file mtime changed are re-embedded. Returns a
-        {filename: vector} map, or None if embeddings are unavailable.
-        """
-        if requests is None:
-            return None
-        by_label: Dict[str, List[Tuple[Path, str, str]]] = {}
-        for filepath, fname, subject in doclets:
-            by_label.setdefault(self._get_base_dir_label(filepath), []).append((filepath, fname, subject))
-
-        result: Dict[str, List[float]] = {}
-        for label, items in by_label.items():
-            cache_path = self._embedding_cache_path(label)
-            cache: Dict[str, Any] = {}
-            if cache_path.exists():
-                try:
-                    cache = json.loads(cache_path.read_text(encoding='utf-8'))
-                except Exception:
-                    cache = {}
-            pending: List[Tuple[str, str, float]] = []  # (fname, text, mtime)
-            for filepath, fname, subject in items:
-                try:
-                    mtime = filepath.stat().st_mtime
-                except OSError:
-                    continue
-                rec = cache.get(fname)
-                if rec is None or abs(rec.get('mtime', 0.0) - mtime) > 0.01:
-                    body = self.read_doclet_content(filepath)
-                    text = f"{subject}\n{body[:3000]}"
-                    pending.append((fname, text, mtime))
-                elif 'embedding' in rec:
-                    result[fname] = rec['embedding']
-            if pending:
-                vectors = self._ollama_embed([t for _, t, _ in pending])
-                if vectors is None:
-                    return None
-                for (fname, _, mtime), vec in zip(pending, vectors):
-                    cache[fname] = {"mtime": mtime, "embedding": vec}
-                    result[fname] = vec
-                try:
-                    cache_path.parent.mkdir(parents=True, exist_ok=True)
-                    cache_path.write_text(json.dumps(cache), encoding='utf-8')
-                except Exception as e:
-                    print(f"[LLM] could not write embedding cache {cache_path}: {e}")
-        return result
-
-    def semantic_search(self, query: str, top_k: int = None, doclets: List[Tuple[Path, str, str]] = None) -> List[Tuple[Path, str, str]]:
-        """Return the top-k doclets by embedding similarity to the query.
-
-        Uses the cached embedding index (nomic-embed-text by default); does not
-        read full doclet bodies at query time for already-indexed files.
-        """
-        if top_k is None:
-            top_k = self.llm_top_k
-        if doclets is None:
-            doclets = self.find_all_doclets()
-        if not doclets:
-            return []
-        cache = self._ensure_embeddings(doclets)
-        if cache is None:
-            return []
-        qvecs = self._ollama_embed([query])
-        if not qvecs or not qvecs[0]:
-            return []
-        qvec = qvecs[0]
-        scored: List[Tuple[float, Path, str, str]] = []
-        for filepath, fname, subject in doclets:
-            vec = cache.get(fname)
-            if vec is None:
-                continue
-            scored.append((self._cosine(qvec, vec), filepath, fname, subject))
-        scored.sort(key=lambda x: x[0], reverse=True)
-        return [(fp, fn, sub) for _, fp, fn, sub in scored[:top_k]]
-
-    def _is_synthesis_query(self, query: str) -> bool:
-        """True if the query asks about the corpus as a whole (topics covered,
-        overview, summary) rather than about specific doclets."""
-        ql = query.lower()
-        return any(m in ql for m in self.synth_markers)
-
-    def _synthesize_topics(self, doclets: List[Tuple[Path, str, str]], query: str) -> str:
-        """Answer a corpus-level question from subject lines only (no body reads)."""
-        subjects = [f"- {fname}: {subject}" for _, fname, subject in doclets]
-        context = "\n".join(subjects)
-        system = (
-            "You are a helpful assistant for the user's private Markdown doclet "
-            "collection. Answer from the doclet list provided; be concise and "
-            "factual, and cite doclet filenames where relevant. If the list does "
-            "not cover the question, say so."
-        )
-        user = (
-            f"Here are all doclets in the selected topic(s):\n{context}\n\n"
-            f"User question: {query}\n\n"
-            f"Answer the question (e.g. list the main topics covered, grouped "
-            f"with example doclet filenames)."
-        )
-        return self._ollama_chat(system, user)
-
-    def _llm_rank(self, candidates: List[Tuple[Path, str, str]], query: str) -> List[Tuple[Path, str, str]]:
-        """Ask the LLM to pick the matching filenames from a candidate list."""
-        entries = []
-        for filepath, fname, subject in candidates:
-            body = self.read_doclet_content(filepath)
-            preview = body[:300].replace('\n', ' ')
-            entries.append(f"- {fname} | subject: {subject} | preview: {preview}")
-        context = "\n".join(entries)
-        system = (
-            "You are a precise doclet search helper. Return ONLY exact filenames "
-            "from the given list that match the user's query, one per line. "
-            "Filenames look like YYMMDD-NN.md (e.g. 260102-00.md). Handle typos "
-            "and semantic matches. If none match, return exactly NO_MATCHES."
-        )
-        prompt = f"User query: {query}\n\nAvailable doclets:\n{context}\n\nMatching filenames:"
-        response = self._ollama_chat(system, prompt)
-        print(f"[LLM] Response: {response}")
-        if "NO_MATCHES" in response:
-            return []
-        matches: List[Tuple[Path, str, str]] = []
-        by_name = {f: (fp, f, sub) for fp, f, sub in candidates}
-        for line in response.split('\n'):
-            m = re.search(r'(\d{6}-\d{2}(?:\.md)?)', line)
-            if not m:
-                continue
-            fname = m.group(1)
-            if not fname.endswith('.md'):
-                fname = f"{fname}.md"
-            if fname in by_name:
-                matches.append(by_name[fname])
-        return matches
     
     def _match_doclets(self, query: str, use_llm: bool = False) -> Tuple[List[Tuple[Path, str, str]], Optional[str], Dict[str, Any]]:
         """Return matching doclets, optional error code, and metadata."""
@@ -799,17 +601,6 @@ class DocletManager():
                     meta["status"] = "ok"
                     return deterministic_matches, None, meta
         
-        # Synthesis queries (e.g. "list the main topics covered by ...") are
-        # answered from subject lines alone — no body reads, so this scales
-        # with the corpus. Checked before the literal scan below.
-        if use_llm and self._is_synthesis_query(qnorm):
-            answer = self._synthesize_topics(doclets, qnorm)
-            meta["answer"] = answer
-            meta["match_count"] = 0
-            meta["matched_by"] = "llm_synthesis"
-            meta["status"] = "ok"
-            return [], None, meta
-
         # Deterministic subject+body substring match
         deterministic_matches = []
         for filepath, fname, subject in doclets:
@@ -821,29 +612,60 @@ class DocletManager():
 
         llm_matches = []
         if use_llm:
-            # Candidate pool: literal matches if any; otherwise semantic
-            # retrieval (cached embeddings) so the LLM sees relevant doclets
-            # rather than an arbitrary slice of the corpus. A bounded sample of
-            # the corpus is only the fallback when embeddings are unavailable.
-            if deterministic_matches:
-                candidate_pool = deterministic_matches
-            else:
-                candidate_pool = self.semantic_search(qnorm, doclets=doclets)
-                if not candidate_pool:
-                    candidate_pool = doclets[:self.llm_top_k]
+            # Two-stage search: Use deterministic matches as pre-filter
+            # This limits what gets sent to LLM, saving memory and tokens
+            candidate_pool = deterministic_matches if deterministic_matches else doclets
+            
+            # Limit to top 20 candidates to avoid overwhelming the LLM
+            max_candidates = 20
+            if len(candidate_pool) > max_candidates:
+                candidate_pool = candidate_pool[:max_candidates]
+                print(f"[LLM] Pre-filtered to {max_candidates} candidates from {len(doclets)} total doclets")
+            
+            print(f"[LLM] Invoking LLM for query: '{query}' with {len(candidate_pool)} candidates")
+            entries = []
+            for filepath, fname, subject in candidate_pool:
+                body = self.read_doclet_content(filepath)
+                preview = body[:400].replace('\n', ' ')
+                entries.append(f"- {fname} | subject: {subject} | preview: {preview}")
 
-            # Deduplicate and bound the pool sent to the LLM.
-            seen = set()
-            pool = []
-            for c in candidate_pool:
-                if c[1] in seen:
-                    continue
-                seen.add(c[1])
-                pool.append(c)
-            pool = pool[:self.llm_top_k]
-            print(f"[LLM] Invoking LLM for query: '{query}' with {len(pool)} candidates")
+            context = "\n".join(entries)
+            prompt = f"""You are a precise doclet search helper.
+Below is a list of doclets in the format: filename | subject | preview
 
-            llm_matches = self._llm_rank(pool, qnorm)
+User query: {query}
+
+IMPORTANT: Return ONLY the exact filenames from the list that match the query.
+Filenames follow the format YYMMDD-NN.md (e.g., 260102-00.md).
+Handle typos and semantic matches.
+Return one filename per line.
+If no matches, return: NO_MATCHES
+
+Available doclets:
+{context}
+
+Return matching filenames:"""
+
+            llm_response = self.query_llm(prompt)
+            print(f"[LLM] Response: {llm_response}")
+            if "NO_MATCHES" not in llm_response:
+                for line in llm_response.strip().split('\n'):
+                    line = line.strip()
+                    # Skip empty lines or explanatory text
+                    if not line or not re.search(r'\d{6}-\d{2}', line):
+                        continue
+                    # Extract filename pattern from the line
+                    match = re.search(r'(\d{6}-\d{2}(?:\.md)?)', line)
+                    if match:
+                        fname = match.group(1)
+                        if not fname.endswith('.md'):
+                            fname = f"{fname}.md"
+                    else:
+                        continue
+                    for fp, f, subj in candidate_pool:
+                        if f == fname:
+                            llm_matches.append((fp, f, subj))
+                            break
 
         matching_files = llm_matches if use_llm and llm_matches else deterministic_matches
 
@@ -871,13 +693,6 @@ class DocletManager():
         
         matches, error, meta = self._match_doclets(query=query, use_llm=use_llm)
         # print(f"  _match_doclets returned: error={error}, match_count={meta.get('match_count')}, status={meta.get('status')}")
-
-        # Corpus-level (synthesis) answers come back as a single {answer} entry.
-        if meta.get("answer"):
-            if return_meta:
-                meta["results_included"] = True
-                return [{"answer": meta["answer"]}], meta
-            return [{"answer": meta["answer"]}]
 
         results: List[Dict[str, Any]] = []
         if not error:
@@ -933,9 +748,6 @@ class DocletManager():
                     return "\n".join(block_lines)
 
         matches, error, _meta = self._match_doclets(query=query, use_llm=use_llm)
-
-        if _meta.get("answer"):
-            return _meta["answer"]
 
         if error == "no_doclets":
             return "No doclets found in the directory structure."
@@ -1015,7 +827,7 @@ class DocletManager():
 ###############################################################################
 # The Doclets compiler and runtime handlers
 
-from allspeak import Handler, ECValue, ECDictionary, ECList, ECVariable
+from easycoder import Handler, ECValue, ECDictionary, ECList, ECVariable
 
 class Doclets(Handler):
 
@@ -1091,34 +903,29 @@ class Doclets(Handler):
                     return_meta=False
                 )
 
-                # Synthesis answers come back as a single {answer} entry; the
-                # client renders these as a prose block (ANSWER| protocol).
-                if results and len(results) == 1 and 'answer' in results[0]:
-                    results = 'ANSWER|' + results[0]['answer']
-                else:
-                    topics_dict = {}
-                    for r in results:
-                        display_name = r.get('display_filename', '') # type: ignore
-                        topic = display_name.split('/')[0].lower() if '/' in display_name else display_name.lower()
-                        if topic not in topics_dict:
-                            topics_dict[topic] = []
-                        topics_dict[topic].append(r)
+                topics_dict = {}
+                for r in results:
+                    display_name = r.get('display_filename', '') # type: ignore
+                    topic = display_name.split('/')[0].lower() if '/' in display_name else display_name.lower()
+                    if topic not in topics_dict:
+                        topics_dict[topic] = []
+                    topics_dict[topic].append(r)
 
-                    sorted_results = []
-                    for topic in sorted(topics_dict.keys()):
-                        topic_group = sorted(topics_dict[topic], key=lambda r: r.get('filename', ''), reverse=True)
-                        sorted_results.extend(topic_group)
-                    results = sorted_results
+                sorted_results = []
+                for topic in sorted(topics_dict.keys()):
+                    topic_group = sorted(topics_dict[topic], key=lambda r: r.get('filename', ''), reverse=True)
+                    sorted_results.extend(topic_group)
+                results = sorted_results
 
-                    res = []
-                    for r in results:
-                        if 'content' in r:
-                            res.append(r.get('content')) # type: ignore
-                        else:
-                            display_name = r.get('display_filename', '')
-                            subject = r.get('subject', '')
-                            res.append(f"{display_name}: {subject}") # type: ignore
-                    results = res
+                res = []
+                for r in results:
+                    if 'content' in r:
+                        res.append(r.get('content')) # type: ignore
+                    else:
+                        display_name = r.get('display_filename', '')
+                        subject = r.get('subject', '')
+                        res.append(f"{display_name}: {subject}") # type: ignore
+                results = res
 
             elif mode == 'view':
                 results = self.program.doclets_manager.read_doclet_content(message['message'])
@@ -1155,10 +962,6 @@ class Doclets(Handler):
             ollama_url=ollama_url
         )
         self.program.doclets_manager = doclets_manager
-        # Optional warm-up so the first user LLM query doesn't pay model-load
-        # latency (opt-in via DOCLETS_LLM_WARMUP=1).
-        if os.environ.get('DOCLETS_LLM_WARMUP', '0').lower() in ('1', 'true', 'yes'):
-            doclets_manager.warmup_llm()
         return self.nextPC()
 
     # get doclet {list} from {message}
@@ -1218,34 +1021,34 @@ class Doclets(Handler):
                 return_meta=False
             )
             
-            # Synthesis answers come back as a single {answer} entry; the
-            # client renders these as a prose block (ANSWER| protocol).
-            if results and len(results) == 1 and 'answer' in results[0]:
-                results = 'ANSWER|' + results[0]['answer']
-            else:
-                topics_dict = {}
-                for r in results:
-                    display_name = r.get('display_filename', '') # type: ignore
-                    topic = display_name.split('/')[0].lower() if '/' in display_name else display_name.lower()
-                    if topic not in topics_dict:
-                        topics_dict[topic] = []
-                    topics_dict[topic].append(r)
-
-                sorted_results = []
-                for topic in sorted(topics_dict.keys()):
-                    topic_group = sorted(topics_dict[topic], key=lambda r: r.get('filename', ''), reverse=True)
-                    sorted_results.extend(topic_group)
-                results = sorted_results
-
-                res = []
-                for r in results:
-                    if 'content' in r:
-                        res.append(r.get('content')) # type: ignore
-                    else:
-                        display_name = r.get('display_filename', '')
-                        subject = r.get('subject', '')
-                        res.append(f"{display_name}: {subject}") # type: ignore
-                results = res
+            # Sort by topic first, then by filename within each topic
+            # First pass: group results by topic
+            topics_dict = {}
+            for r in results:
+                display_name = r.get('display_filename', '') # type: ignore
+                topic = display_name.split('/')[0].lower() if '/' in display_name else display_name.lower()
+                if topic not in topics_dict:
+                    topics_dict[topic] = []
+                topics_dict[topic].append(r)
+            
+            # Second pass: sort each topic group by filename, then combine in topic order
+            sorted_results = []
+            for topic in sorted(topics_dict.keys()):
+                topic_group = sorted(topics_dict[topic], key=lambda r: r.get('filename', ''), reverse=True)
+                sorted_results.extend(topic_group)
+            results = sorted_results
+            
+            # Format results: append subject to display filename
+            res = []
+            for r in results:
+                if 'content' in r:
+                    res.append(r.get('content')) # type: ignore
+                else:
+                    # Append subject to display filename
+                    display_name = r.get('display_filename', '')
+                    subject = r.get('subject', '')
+                    res.append(f"{display_name}: {subject}") # type: ignore
+            results = res
 
         elif action == 'view':
             # Extract doclet name

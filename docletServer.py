@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 This script runs every day at 3am as a cron task.
-Restarts docletServer.as by killing any running instance and starting a new one.
+Restarts docletServer.ecs by killing any running instance and starting a new one.
 """
 
 import os
@@ -11,9 +11,9 @@ import signal
 import time
 
 def main():
-    # Look for a running instance of docletServer.as
+    # Look for a running instance of docletServer.ecs
     try:
-        # Use ps to find docletServer.as processes
+        # Use ps to find docletServer.ecs processes
         result = subprocess.run(
             ["ps", "-eaf"],
             capture_output=True,
@@ -21,10 +21,10 @@ def main():
             check=True
         )
         
-        # Filter for docletServer.as processes (excluding grep itself and this script)
+        # Filter for docletServer.ecs (excluding grep itself and this script)
         pid = None
         for line in result.stdout.splitlines():
-            if "docletServer.as" in line and "grep" not in line and str(os.getpid()) not in line:
+            if "docletServer.ecs" in line and "grep" not in line and str(os.getpid()) not in line:
                 # Get the second field (PID)
                 parts = line.split()
                 if len(parts) >= 2:
@@ -51,8 +51,8 @@ def main():
     
     # Start a new instance and wait for it to complete
     try:
-        result = subprocess.run(["allspeak", "docletServer.as"], check=True)
-        # print("docletServer.as completed successfully")
+        result = subprocess.run(["easycoder", "docletServer.ecs"], check=True)
+        # print("docletServer.ecs completed successfully")
     except:
         print("Terminated")
 

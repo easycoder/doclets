@@ -1,7 +1,7 @@
 # Examples and Patterns
 
 ## Example: Doclets reader pattern
-Use this pattern when building AllSpeak browser apps:
+Use this pattern when building EasyCoder browser apps:
 1. Render screen from Webson JSON
 2. Attach all required elements by stable IDs
 3. Register click/change handlers once
@@ -17,13 +17,13 @@ Use this pattern when building AllSpeak browser apps:
   - explicit topic list for partial
 
 ## Example: Dist/debug pattern
-- Use `allspeak.js` (unminified) while diagnosing runtime errors
-- Switch to `allspeak-min.js` once stable
+- Use `easycoder.js` (unminified) while diagnosing runtime errors
+- Switch to `easycoder-min.js` once stable
 - Keep `Webson.js` loaded when `render` command is used
 
 ## Candidate onboarding task for unfamiliar AI
 Tic-Tac-Toe applet (human vs computer):
 - UI via Webson JSON
-- game logic in AllSpeak script
+- game logic in EasyCoder script
 - explicit state machine for turns/win/draw
 - no direct DOM string hacks outside established patterns

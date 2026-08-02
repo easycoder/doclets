@@ -5,24 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Doclets Web Reader (Dev)</title>
   <!-- Uncomment the following for development -->
-<!--    <script type='text/javascript' src='allspeak-js/config.js'></script>
-    <script type='text/javascript' src='allspeak-js/Core.js'></script>
-    <script type='text/javascript' src='allspeak-js/Browser.js'></script>
-    <script type='text/javascript' src='allspeak-js/MarkdownRenderer.js'></script>
-    <script type='text/javascript' src='allspeak-js/Webson.js'></script>
-    <script type='text/javascript' src='allspeak-js/JSON.js'></script>
-    <script type='text/javascript' src='allspeak-js/MQTT.js'></script>
-    <script type='text/javascript' src='allspeak-js/REST.js'></script>
-    <script type='text/javascript' src='allspeak-js/Compare.js'></script>
-    <script type='text/javascript' src='allspeak-js/Condition.js'></script>
-    <script type='text/javascript' src='allspeak-js/Value.js'></script>
-    <script type='text/javascript' src='allspeak-js/Run.js'></script>
-    <script type='text/javascript' src='allspeak-js/Opcodes.js'></script>
-    <script type='text/javascript' src='allspeak-js/Language.js'></script>
-    <script type='text/javascript' src='allspeak-js/LanguagePack_en.js'></script>
-    <script type='text/javascript' src='allspeak-js/Compile.js'></script>
-    <script type='text/javascript' src='allspeak-js/Main.js'></script>
-    <script type='text/javascript' src='allspeak-js/AllSpeak.js'></script>-->
+<!--    <script type='text/javascript' src='easycoder-js/config.js'></script>
+    <script type='text/javascript' src='easycoder-js/Core.js'></script>
+    <script type='text/javascript' src='easycoder-js/MarkdownRenderer.js'></script>
+    <script type='text/javascript' src='easycoder-js/Webson.js'></script>
+    <script type='text/javascript' src='easycoder-js/Browser.js'></script>
+    <script type='text/javascript' src='easycoder-js/Compare.js'></script>
+    <script type='text/javascript' src='easycoder-js/Compile.js'></script>
+    <script type='text/javascript' src='easycoder-js/Condition.js'></script>
+    <script type='text/javascript' src='easycoder-js/JSON.js'></script>
+    <script type='text/javascript' src='easycoder-js/MQTT.js'></script>
+    <script type='text/javascript' src='easycoder-js/REST.js'></script>
+    <script type='text/javascript' src='easycoder-js/Run.js'></script>
+    <script type='text/javascript' src='easycoder-js/Value.js'></script>
+    <script type='text/javascript' src='easycoder-js/Main.js'></script>
+    <script type='text/javascript' src='easycoder-js/EasyCoder.js'></script>-->
   <script>function print(msg) { console.log(msg); }</script>
   <style>
     @media print {
@@ -56,17 +53,17 @@
     });
   </script>
   <!-- Uncomment the the next line for deployment -->
-  <script type='text/javascript' src='https://allspeak.ai/dist/allspeak-min.js'></script>
+  <script type='text/javascript' src='https://easycoder.github.io/dist/easycoder-min.js'></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
-  <pre id="allspeak-script" style="display:none">
+  <pre id="easycoder-script" style="display:none">
 !  Doclets web reader loader
 
         script Loader
 
         variable Script
-        rest get Script from `doclets.as?v=` cat now
+        rest get Script from `doclets.ecs?v=` cat now
         run Script
   </pre>
 </body>
