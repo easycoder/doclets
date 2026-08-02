@@ -1,69 +1,63 @@
 ---
-title: "From documentation chaos to a searchable document server for small teams"
+title: "AI writes the code, humans review it — review is the coming skill"
 published: false
-description: "A personal documentation mess — emails, Joplin, WhatsApp, dev.to posts — became Doclets: a full-stack AllSpeak app with content search, local-LLM queries, and per-topic access control."
-tags: [allspeak, documentation, lowcode, programming]
+description: "AI writes the code; humans review it. Recognition is easier than creation when the language is close to human language."
+tags: [ai, coding, allspeak, lowcode]
 ---
 
-A while back I wrote that I produce a lot of documentation but had no strategy for organising it. Emails, web pages, Markdown notes in Joplin, WhatsApp messages, dev.to posts of my own — it was a largely unsearchable mass of information. Every fact I needed lived somewhere; none of it was findable.
+Most articles on dev.to are about coding. This one is not. It is about the entire process of producing software in a world where AI does the coding and humans do the reviewing. That reversal is the whole point, and it has consequences for which skills matter.
 
-Doclets started as an AllSpeak coding exercise. It became the tool that brought order to that chaos — and, six months on, it has quietly turned into something a small team could genuinely use.
+## Recognition is easier than writing
 
-## What Doclets is
+There is no imperative for you to learn to write AllSpeak — you will never be asked to. Your job is to recognise code presented in the language. Recognition is a far simpler task than writing, and it becomes more and more effective the closer the language approaches that of human languages.
 
-Doclets is a central, searchable repository of Markdown documents ("doclets"), organised into topics and years. You read and edit doclets in a browser on any device; a small server process owns the documents and talks to the browser over MQTT.
+When you read a book on an unfamiliar subject, you consult a dictionary for the terms you don't know. Here the dictionary is an AI agent: an unfamiliar construct in the code is just a question away. "What is this block doing?" — and the agent explains it in plain language. Recognition, assisted by the dictionary, is enough to review what was written.
+
+## Why programmers resist
+
+This is hard for most programmers to comprehend, so used are they to regarding code as something they own themselves. "Reading the code" has always been unpopular, and mostly for good reason. That has the potential to change dramatically if AI writes code in a more accessible language.
+
+I deliberately avoid the word "programmer" here, because in this scenario programmers, as such, effectively cease to exist. The people who remain are engineers — and the skill they need is judgment, not syntax.
+
+## Review is the coming skill
+
+It is widely accepted that there are fewer and fewer opportunities to gain coding expertise. Review is the coming skill, and if toolchains remain as they are now, there will be few who possess it effectively.
+
+The only alternative to accepting — and embracing — the need for more accessible forms of language is to abdicate the entire process of software generation. That is a dangerous path, and one humans must avoid if they are to retain relevance in the world of tomorrow.
+
+## AllSpeak is a first step, not a destination
+
+AllSpeak is not a final destination; it is a first step towards a new paradigm, one that must gradually become familiar to engineers. The closer the language comes to a human language, the more effective recognition becomes, and the less the code feels like someone else's possession.
+
+## The illustration: Doclets
+
+The rest of this article is about Doclets, a working example of the pattern. Doclets was neither hand-coded nor vibe-coded: it was produced through exactly the process described above — AI writes, human reviews, block by block. It is an example of a pattern — maybe the only pattern that acknowledges the gap between coding and review and points the way to bridging it.
+
+Doclets is a central, searchable repository of Markdown documents ("doclets"), organised into topics and years, read and edited in a browser on any device. A small server process owns the documents and talks to the browser over MQTT.
 
 ![Screenshot: the Doclets reader showing the topic list and query bar](screenshot-reader.png)
 
-The two things that make it more than a notes folder are *finding* and *sharing*.
+Plain search is a substring match over every doclet's title and content. A second way to search uses a local language model: tick "LLM query" and ask questions like *"list the main topics covered by the doclets in the Linux topic"* — a short prose answer comes back, derived from the collection itself, running entirely on your own machine.
 
-## Finding things
+![Screenshot: an LLM query returning a concise answer in the Doclets reader](screenshot-llm.png)
 
-Plain search is a simple substring match over every doclet's title and content — nothing clever, but it works, and it already beat the alternative (not being able to find things at all).
+For small teams, each topic has an owner and a visibility: public topics are readable by anyone, private topics only by the owner and named readers, with separate grants for creating, modifying and deleting, and a simple activity log of who did what and when.
 
-More recently I added a second way to search: a local language model. Tick "LLM query" and you can ask questions like *"list the main topics covered by the doclets in the Linux topic"* and get a short prose answer derived from the collection's subjects, or *"find the doclets that include a proposed letter of introduction"* and get the matching documents back. The model runs on your own machine via Ollama — no cloud, no per-query cost — and every doclet is indexed by a small embedding model, so searching doesn't mean reading the whole database on each query.
+The construction is deliberately unremarkable — one language for the whole stack (the browser client and the server are both AllSpeak), screens defined declaratively, MQTT for request/reply, and the one heavy component (searching, securing, and the LLM integration) consigned to a plugin with a small vocabulary of its own.
 
-![Screenshot: an LLM query returning a concise answer](screenshot-llm.png)
+This is a general picture, not a specification — the details live in the repository.
 
-## Sharing with a small team
+## Ask your agent
 
-None of the tools that held my scattered notes offered the same ease of use — and few could operate across the internet. Doclets is a central repository, so the same collection is reachable from any browser, anywhere.
+If you want the detail, point your AI agent at the [Doclets repository](https://github.com/easycoder/doclets) and ask for a synopsis, a full technical breakdown, or anything in between. Every section of the code carries a doc block explaining *why* it exists, so the agent — and you — can read it block by block. Recognition, assisted by the dictionary, all the way down.
 
-If you want to share that repository with colleagues, each topic can have an owner and a visibility:
-
-- **public** topics are readable by anyone with the link
-- **private** topics are readable only by the owner and named readers
-- creating/modifying is controlled by per-user grants, deleting by its own separate grant
-- a simple activity log records who did what, and when
-
-Identity is a token phrase — nothing to install, nothing to configure beyond a small JSON file of permissions.
-
-![Screenshot: the per-topic access control file](screenshot-acl.png)
-
-## Why the construction matters
-
-Doclets is also a good illustration of building a real application in AllSpeak, and the way it is put together is one of the reasons it stayed maintainable:
-
-- **One language, full stack.** The browser client (`doclets.as`) and the server (`docletServer.as`) are both AllSpeak. One person can understand and change the entire system — UI, messaging, backend — without a conventional web framework or a second client language.
-- **Declarative screens.** The UI is defined as Webson JSON, not hand-written DOM code — easy to read, easy for AI tools to generate.
-- **MQTT instead of REST.** The browser and server talk over MQTT request/reply, which works naturally across the internet and on phones.
-- **A clear plugin boundary.** The one genuinely heavy part — managing, searching and securing the document collection, plus the LLM integration — lives in a small Python plugin that exposes simple AllSpeak commands like `doclets query` and `doclets topics`. The scripting language stays readable; the native code stays isolated.
-- **Features that arrive as additions, not rewrites.** Semantic LLM search and per-topic access control were bolted on over time without disturbing the original design — a sign the structure is doing its job.
-
-Because AllSpeak separates language from logic, the same application could be presented in French, Arabic or any other language via a language pack — a property that also happens to be at the heart of why AllSpeak exists.
-
-## Running it
-
-The server is a single Python process (the `allspeak` runtime) plus an MQTT broker; the client is static files on any web host. If you want the LLM features, you add Ollama with a small model — again, all local.
-
-![Screenshot: the doclets server console showing MQTT connect and an LLM query](screenshot-server.png)
-
-Six months ago my documentation was a scattered mess. Today I can find any of it in seconds, and I can share the collection with people who need it without giving them the mess. If you have the same problem, Doclets is a good place to start — and if you are curious about AllSpeak, it is a working example of what the platform can do.
+Code was never the product; the product is what the code does. If AI writes the code and we review it well, software production becomes a skill of judgment rather than of syntax. That is a change worth embracing.
 
 <!--
 Editor notes:
-- Replace the four screenshot placeholders with real images (dev.to: upload in the editor and use the generated URLs, or commit images and set cover_image).
+- Replace the two screenshot placeholders with real images (dev.to: upload in the editor and use the generated URLs).
 - Keep the description under ~150 characters for previews.
-- Tags: max 4, lowercase, no spaces (currently: allspeak, documentation, lowcode, programming).
+- Tags: max 4, lowercase, no spaces (currently: ai, coding, allspeak, lowcode).
 - Optional front matter: canonical_url, cover_image, series.
+- Central message: AI writes / human reviews; doclets is the peripheral illustration; end with the "ask your agent" invitation.
 -->
