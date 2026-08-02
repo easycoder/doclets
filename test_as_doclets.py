@@ -163,13 +163,13 @@ def test_answer_protocol(mgr, fake):
 
 
 def test_llm_ready(mgr, fake):
-    fake.tags = ["qwen3.5:9b", "nomic-embed-text"]
+    fake.tags = ["qwen3.5:9b", "nomic-embed-text:latest"]  # :latest suffix from a bare pull
     ok, detail = mgr.llm_ready()
     assert ok, detail
     fake.tags = []
     ok, detail = mgr.llm_ready()
     assert not ok and "not pulled" in detail, detail
-    print("OK  test_llm_ready (present / not-pulled)")
+    print("OK  test_llm_ready (bare-name vs :latest, not-pulled)")
 
 
 def main():

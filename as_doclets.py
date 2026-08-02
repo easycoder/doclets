@@ -579,16 +579,21 @@ class DocletManager():
         """Check Ollama is reachable and the configured models are pulled.
 
         Cheap: GET /api/tags — loads nothing. Returns (ok, detail).
+        A model pulled without an explicit tag (e.g. `nomic-embed-text`) is
+        reported by Ollama as `name:latest`, so the comparison strips that.
         """
+        def bare(name: str) -> str:
+            return name[:-7] if name.endswith(':latest') else name
+
         if requests is None:
             return False, "requests module not installed"
         try:
             response = requests.get(f"{self.ollama_url}/api/tags", timeout=10)
             response.raise_for_status()
-            models = [m.get('name', '') for m in response.json().get('models', [])]
+            pulled = {bare(m.get('name', '')) for m in response.json().get('models', [])}
         except Exception as e:
             return False, f"cannot reach Ollama at {self.ollama_url}: {e}"
-        missing = [m for m in (self.model, self.embed_model) if m not in models]
+        missing = [m for m in (self.model, self.embed_model) if bare(m) not in pulled]
         if missing:
             return False, f"model(s) not pulled: {', '.join(missing)} (run: ollama pull {', '.join(missing)})"
         return True, f"{self.model} + {self.embed_model}"
