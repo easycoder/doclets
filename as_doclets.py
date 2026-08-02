@@ -911,8 +911,12 @@ class DocletManager():
         qnorm = qraw.strip('"\'')  # tolerate quoted queries
         query_lower = qnorm.lower()
         if not query_lower:
-            meta["status"] = "empty_query"
-            return [], "empty_query", meta
+            # Empty query = "list everything": return every doclet in the
+            # selected (already read-filtered) topics.
+            meta["match_count"] = len(doclets)
+            meta["matched_by"] = "deterministic"
+            meta["status"] = "ok"
+            return doclets, None, meta
 
         # Direct match: display filename (e.g., 'RBR/260102-00.md')
         if '/' in qnorm:

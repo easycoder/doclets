@@ -296,6 +296,14 @@ def test_readable_topics(base):
     print("OK  test_readable_topics (public vs private listing)")
 
 
+def test_empty_query_lists_all(mgr):
+    results = mgr.search_data("")
+    names = sorted(r["filename"] for r in results)
+    assert len(names) == 4, names  # every corpus doclet
+    assert names == sorted(f for f, _, _ in CORPUS), names
+    print("OK  test_empty_query_lists_all (empty query returns every doclet)")
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="doclets-test-"))
     try:
@@ -310,6 +318,7 @@ def main():
 
         test_filename_lookup(mgr)
         test_literal_substring(mgr)
+        test_empty_query_lists_all(mgr)
         test_semantic_llm_ranking(mgr, fake)
         test_synthesis(mgr, fake)
         test_embed_cache_incremental(base, fake)

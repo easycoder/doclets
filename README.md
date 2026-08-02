@@ -58,7 +58,8 @@ any query with `LLM:`). With the LLM button:
   embedding-retrieved candidates are returned instead — so a fickle model
   can't turn a good query into "no results".
 - Plain queries keep their existing behaviour: filename lookup, or complete
-  literal substring matching.
+  literal substring matching. An empty query lists every doclet in the
+  selected topics.
 
 While a query is in flight the two query buttons turn amber and are disabled;
 if it fails (timeout) they turn red.
