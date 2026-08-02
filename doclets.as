@@ -500,7 +500,9 @@ WaitForReply:
     ! embeds the topic (can take a minute), while plain queries answer in ~1s.
     if LLMWaitLong
     begin
-        put 1200 into MaxWait
+        ! ~4 minutes: first LLM call after a restart loads the model (can be
+        ! ~2 min on this hardware) plus generation.
+        put 2400 into MaxWait
     end
     else
     begin

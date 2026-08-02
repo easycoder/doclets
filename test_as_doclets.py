@@ -35,6 +35,12 @@ class FakeOllama:
         self.embed_models = []
         self.chat_payloads = []
         self.reply = 'NO_MATCHES'
+        self.tags = []
+
+    def get(self, url, timeout=None):
+        if url.endswith('/api/tags'):
+            return FakeResp({"models": [{"name": n} for n in self.tags]})
+        raise AssertionError(f'unexpected Ollama URL: {url}')
 
     def post(self, url, json=None, timeout=None):
         if url.endswith('/api/embed'):
@@ -156,6 +162,16 @@ def test_answer_protocol(mgr, fake):
     print("OK  test_answer_protocol (handler prefix verified in code review)")
 
 
+def test_llm_ready(mgr, fake):
+    fake.tags = ["qwen3.5:9b", "nomic-embed-text"]
+    ok, detail = mgr.llm_ready()
+    assert ok, detail
+    fake.tags = []
+    ok, detail = mgr.llm_ready()
+    assert not ok and "not pulled" in detail, detail
+    print("OK  test_llm_ready (present / not-pulled)")
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="doclets-test-"))
     try:
@@ -174,6 +190,7 @@ def main():
         test_synthesis(mgr, fake)
         test_embed_cache_incremental(base, fake)
         test_answer_protocol(mgr, fake)
+        test_llm_ready(mgr, fake)
         print("\nAll tests passed.")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

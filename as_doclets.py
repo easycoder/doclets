@@ -575,6 +575,24 @@ class DocletManager():
         else:
             print(f"[LLM] warmup done in {time.time() - start:.1f}s")
 
+    def llm_ready(self) -> Tuple[bool, str]:
+        """Check Ollama is reachable and the configured models are pulled.
+
+        Cheap: GET /api/tags — loads nothing. Returns (ok, detail).
+        """
+        if requests is None:
+            return False, "requests module not installed"
+        try:
+            response = requests.get(f"{self.ollama_url}/api/tags", timeout=10)
+            response.raise_for_status()
+            models = [m.get('name', '') for m in response.json().get('models', [])]
+        except Exception as e:
+            return False, f"cannot reach Ollama at {self.ollama_url}: {e}"
+        missing = [m for m in (self.model, self.embed_model) if m not in models]
+        if missing:
+            return False, f"model(s) not pulled: {', '.join(missing)} (run: ollama pull {', '.join(missing)})"
+        return True, f"{self.model} + {self.embed_model}"
+
     def query_llm(self, prompt: str, model: str = None) -> str: # type: ignore
         """Backwards-compatible wrapper around _ollama_chat for callers that
         use the old single-prompt API."""
@@ -1155,10 +1173,18 @@ class Doclets(Handler):
             ollama_url=ollama_url
         )
         self.program.doclets_manager = doclets_manager
-        # Optional warm-up so the first user LLM query doesn't pay model-load
-        # latency (opt-in via DOCLETS_LLM_WARMUP=1).
-        if os.environ.get('DOCLETS_LLM_WARMUP', '0').lower() in ('1', 'true', 'yes'):
-            doclets_manager.warmup_llm()
+        # Log LLM readiness; optionally pre-load the model so the first user
+        # query doesn't pay model-load latency (DOCLETS_LLM_WARMUP=1).
+        ok, detail = doclets_manager.llm_ready()
+        if ok:
+            print(f"[LLM] available ({detail})")
+            if os.environ.get('DOCLETS_LLM_WARMUP', '0').lower() in ('1', 'true', 'yes'):
+                doclets_manager.warmup_llm()
+                print("[LLM] ready to accept queries (model warmed up)")
+            else:
+                print("[LLM] ready to accept queries (first query will load the model)")
+        else:
+            print(f"[LLM] NOT ready: {detail}")
         return self.nextPC()
 
     # get doclet {list} from {message}
