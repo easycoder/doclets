@@ -34,6 +34,9 @@ class DocletManager():
         self.llm_timeout = int(os.environ.get('DOCLETS_LLM_TIMEOUT', '120'))
         self.llm_temperature = float(os.environ.get('DOCLETS_LLM_TEMPERATURE', '0.3'))
         self.embed_cache_dir = Path(os.environ.get('DOCLETS_EMBED_CACHE', str(Path.home() / '.doclet-embeddings')))
+        # Access control (v2 ACL) and activity logging
+        self.acl_path = os.environ.get('DOCLETS_ACL_PATH', '~/.doclet-save.acl')
+        self.activity_log_path = os.environ.get('DOCLETS_ACTIVITY_LOG', '~/.doclet-activity.log')
         markers = os.environ.get(
             'DOCLETS_LLM_SYNTH',
             'list the main topics,main topics,topics covered,what topics,which topics,how many topics,how many,number of topics,count the,summar,overview,categories,outline,what is covered,what\'s here,what is here,structure of the'
@@ -289,6 +292,123 @@ class DocletManager():
             return {"entries": []}
         return data
 
+    #############################################################################
+    # Access control (ACL v2) and activity logging.
+    #
+    # ~/.doclet-save.acl (version 2) is additive over v1:
+    #   { "version": 2,
+    #     "entries": [ {"name":..., "token":..., "topics":[...]} ],   # write grants
+    #     "topics": { "<topic>": {"owner":..., "public": bool,
+    #                             "readers": [...], "deleters": [...]} } }
+    # Unconfigured topics stay open by default (read for everyone; writes via
+    # entries, as before). Owner always has full rights.
+
+    def _topic_config(self, topic: str, acl: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        topics = acl.get('topics') if isinstance(acl, dict) else None
+        if isinstance(topics, dict):
+            cfg = topics.get(topic)
+            if isinstance(cfg, dict):
+                return cfg
+        return None
+
+    @staticmethod
+    def _token_matches(token: str, expected: Any) -> bool:
+        if not token or not expected:
+            return False
+        if isinstance(expected, str):
+            return token == expected
+        if isinstance(expected, list):
+            return token in expected
+        return False
+
+    def _token_writes_topic(self, token: str, topic: str, acl: Dict[str, Any]) -> bool:
+        """Legacy v1 write grant: an ACL entry whose topics include this topic or '*'.
+        (Shared by can_write/can_delete so the ACL file is read once per call.)"""
+        for entry in acl.get('entries', []):
+            if not isinstance(entry, dict):
+                continue
+            if entry.get('token') != token:
+                continue
+            topics = entry.get('topics', [])
+            if isinstance(topics, list) and ('*' in topics or topic in topics):
+                return True
+        return False
+
+    def can_read(self, topic: str, token: str = '', acl_path: Union[Path, str] = None) -> bool:
+        """May `token` read this topic? Unconfigured topics are open by default."""
+        if acl_path is None:
+            acl_path = self.acl_path
+        acl = self._load_save_acl(acl_path)
+        cfg = self._topic_config(topic, acl)
+        if cfg is None:
+            return True
+        if cfg.get('public', False):
+            return True
+        if self._token_matches(token, cfg.get('owner')) or self._token_matches(token, cfg.get('readers', [])):
+            return True
+        # Writers can read what they may edit.
+        return self._token_writes_topic(token, topic, acl)
+
+    def can_write(self, topic: str, token: str = '', acl_path: Union[Path, str] = None) -> bool:
+        """May `token` create/modify doclets in this topic?"""
+        if acl_path is None:
+            acl_path = self.acl_path
+        acl = self._load_save_acl(acl_path)
+        cfg = self._topic_config(topic, acl)
+        if cfg is not None and self._token_matches(token, cfg.get('owner')):
+            return True
+        return self._token_writes_topic(token, topic, acl)
+
+    def can_delete(self, topic: str, token: str = '', acl_path: Union[Path, str] = None) -> bool:
+        """May `token` delete doclets in this topic? Configured topics use
+        owner/deleters; unconfigured topics keep today's behaviour (write
+        grant implies delete)."""
+        if acl_path is None:
+            acl_path = self.acl_path
+        acl = self._load_save_acl(acl_path)
+        cfg = self._topic_config(topic, acl)
+        if cfg is not None:
+            return (self._token_matches(token, cfg.get('owner'))
+                    or self._token_matches(token, cfg.get('deleters', [])))
+        return self._token_writes_topic(token, topic, acl)
+
+    def readable_topics(self, token: str = '', acl_path: Union[Path, str] = None) -> List[str]:
+        """Topic names the token may read (used by the `doclets topics` command)."""
+        doclets_root = Path.home() / 'Doclets'
+        if doclets_root.exists() and doclets_root.is_dir():
+            topics = [d.name for d in doclets_root.iterdir() if d.is_dir() and d.name[0] != '.']
+        else:
+            topics = []
+        return sorted(t for t in topics if self.can_read(t, token, acl_path))
+
+    @staticmethod
+    def parse_token_payload(payload: str) -> Tuple[str, str]:
+        """Split `token\\n<payload>` into (token, payload). Empty token allowed."""
+        if payload is None:
+            return '', ''
+        text = payload if isinstance(payload, str) else str(payload)
+        first = text.find('\n')
+        if first < 0:
+            return text.strip(), ''
+        return text[:first].strip(), text[first + 1:]
+
+    def log_action(self, token: str, action: str, topic: str, doclet: str = '', result: str = '') -> None:
+        """Append one JSONL line to the activity log (no reader tooling yet)."""
+        path = Path(self.activity_log_path).expanduser()
+        entry = {
+            "ts": datetime.utcnow().isoformat(timespec='seconds') + 'Z',
+            "token": token or 'anonymous',
+            "action": action,
+            "topic": topic,
+            "doclet": doclet,
+            "result": result,
+        }
+        try:
+            with open(path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(entry) + '\n')
+        except Exception as e:
+            print(f"[acl] could not write activity log {path}: {e}")
+
     def _resolve_doclet_save_path(self, display_name: str) -> Optional[Path]:
         display_name = self._normalize_display_name(display_name) or ''
         if not display_name:
@@ -302,7 +422,7 @@ class DocletManager():
         # New doclet canonical path.
         return self._canonical_doclet_path_from_display_name(display_name)
 
-    def save_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = '~/.doclet-save.acl') -> str:
+    def save_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = None) -> str:
         first_newline = payload.find('\n')
         if first_newline < 0:
             return 'Save failed: invalid payload'
@@ -324,20 +444,10 @@ class DocletManager():
             return 'Save failed: invalid doclet name'
         topic = doclet_name.split('/', 1)[0]
 
-        acl = self._load_save_acl(acl_path)
-        entries = acl.get('entries', [])
-        allowed = False
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            if entry.get('token') != token:
-                continue
-            topics = entry.get('topics', [])
-            if isinstance(topics, list) and ('*' in topics or topic in topics):
-                allowed = True
-                break
-
-        if not allowed:
+        if acl_path is None:
+            acl_path = self.acl_path
+        if not self.can_write(topic, token, acl_path):
+            self.log_action(token, 'save', topic, doclet_name, 'denied')
             return 'Save failed: unauthorized'
 
         save_path = self._resolve_doclet_save_path(doclet_name)
@@ -348,22 +458,18 @@ class DocletManager():
             save_path.parent.mkdir(parents=True, exist_ok=True)
             with open(save_path, 'w', encoding='utf-8') as f:
                 f.write(doclet_content)
+            self.log_action(token, 'save', topic, doclet_name, 'ok')
             return f'Saved {doclet_name}'
         except Exception:
             return f'Save failed for {doclet_name}'
 
-    def _is_token_allowed_for_topic(self, token: str, topic: str, acl_path: Union[Path, str] = '~/.doclet-save.acl') -> bool:
+    def _is_token_allowed_for_topic(self, token: str, topic: str, acl_path: Union[Path, str] = None) -> bool:
+        """Legacy v1 write-grant check; kept for compatibility. Delegates to the
+        shared v2 logic so the ACL file is read once per call."""
+        if acl_path is None:
+            acl_path = self.acl_path
         acl = self._load_save_acl(acl_path)
-        entries = acl.get('entries', [])
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            if entry.get('token') != token:
-                continue
-            topics = entry.get('topics', [])
-            if isinstance(topics, list) and ('*' in topics or topic in topics):
-                return True
-        return False
+        return self._token_writes_topic(token, topic, acl)
 
     def create_new_doclet(self, topic: str) -> str:
         topic = (topic or '').strip()
@@ -413,7 +519,7 @@ class DocletManager():
         except Exception:
             return f'Create failed for {display_name}'
 
-    def create_new_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = '~/.doclet-save.acl') -> str:
+    def create_new_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = None) -> str:
         first_newline = payload.find('\n')
         if first_newline < 0:
             return 'Create failed: invalid payload'
@@ -434,7 +540,10 @@ class DocletManager():
         if request_id and not re.match(r'^[A-Za-z0-9._-]{1,64}$', request_id):
             request_id = ''
 
-        if not self._is_token_allowed_for_topic(token, topic, acl_path):
+        if acl_path is None:
+            acl_path = self.acl_path
+        if not self.can_write(topic, token, acl_path):
+            self.log_action(token, 'create', topic, '', 'denied')
             return 'Create failed: unauthorized'
 
         stamp_path: Optional[Path] = None
@@ -484,9 +593,11 @@ class DocletManager():
                 except Exception:
                     pass
 
+        if result.startswith('Created '):
+            self.log_action(token, 'create', topic, result[len('Created '):], 'ok')
         return result
 
-    def delete_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = '~/.doclet-save.acl') -> str:
+    def delete_doclet_with_acl(self, payload: str, acl_path: Union[Path, str] = None) -> str:
         first_newline = payload.find('\n')
         if first_newline < 0:
             return 'Delete failed: invalid payload'
@@ -502,7 +613,10 @@ class DocletManager():
             return 'Delete failed: invalid doclet name'
         topic = doclet_name.split('/', 1)[0]
 
-        if not self._is_token_allowed_for_topic(token, topic, acl_path):
+        if acl_path is None:
+            acl_path = self.acl_path
+        if not self.can_delete(topic, token, acl_path):
+            self.log_action(token, 'delete', topic, doclet_name, 'denied')
             return 'Delete failed: unauthorized'
 
         target = self._resolve_display_filename(doclet_name)
@@ -511,6 +625,7 @@ class DocletManager():
 
         try:
             target.unlink()
+            self.log_action(token, 'delete', topic, doclet_name, 'ok')
             return f'Deleted {doclet_name}'
         except FileNotFoundError:
             return f'Delete failed: not found {doclet_name}'
@@ -1080,12 +1195,12 @@ class Doclets(Handler):
             self.nextToken()
             self.add(command)
             return True
-        if mode in ('query', 'view', 'save', 'new', 'delete'):
+        if mode in ('query', 'view', 'save', 'new', 'delete', 'topics'):
             self.nextToken()
             command['mode'] = mode
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
-                if mode == 'query':
+                if mode in ('query', 'topics'):
                     self.checkObjectType(record, ECList)
                 else:
                     self.checkObjectType(record, ECVariable)
@@ -1109,16 +1224,27 @@ class Doclets(Handler):
             message = self.getObject(self.getVariable(command['message'])).getValue()
             results = ''
 
-            if mode == 'query':
-                query = message.get('message', '')
-                if isinstance(query, bytes):
-                    query = query.decode('utf-8', errors='replace')
-                p = query.find('|')
-                topics = query[:p] if p != -1 else ''
-                query = query[p+1:] if p != -1 else ''
+            if mode == 'topics':
+                mgr = self.program.doclets_manager
+                token, _ = mgr.parse_token_payload(message.get('message', ''))
+                results = mgr.readable_topics(token)
+            elif mode == 'query':
+                payload = message.get('message', '')
+                if isinstance(payload, bytes):
+                    payload = payload.decode('utf-8', errors='replace')
+                mgr = self.program.doclets_manager
+                token, rest = mgr.parse_token_payload(payload)
+                p = rest.find('|')
+                topics = rest[:p] if p != -1 else ''
+                query = rest[p+1:] if p != -1 else ''
 
                 if topics:
-                    self.program.doclets_manager.set_doclets_dirs(topics)
+                    requested = [t.strip() for t in topics.split(',') if t.strip()]
+                    readable = [t for t in requested if mgr.can_read(t, token)]
+                    for t in requested:
+                        if t not in readable:
+                            mgr.log_action(token, 'query', t, '', 'denied')
+                    mgr.set_doclets_dirs(','.join(readable))
 
                 use_llm = False
                 if query.startswith('LLM:'):
@@ -1165,7 +1291,17 @@ class Doclets(Handler):
                     results = res
 
             elif mode == 'view':
-                results = self.program.doclets_manager.read_doclet_content(message['message'])
+                mgr = self.program.doclets_manager
+                payload = message.get('message', '')
+                if isinstance(payload, bytes):
+                    payload = payload.decode('utf-8', errors='replace')
+                token, doclet_name = mgr.parse_token_payload(payload)
+                topic = doclet_name.split('/', 1)[0] if '/' in doclet_name else ''
+                if topic and not mgr.can_read(topic, token):
+                    mgr.log_action(token, 'view', topic, doclet_name, 'denied')
+                    results = f'Permission denied: no read access to topic {topic}'
+                else:
+                    results = mgr.read_doclet_content(doclet_name)
 
             elif mode == 'save':
                 payload = message.get('message', '')
@@ -1245,13 +1381,20 @@ class Doclets(Handler):
             query = query.decode('utf-8', errors='replace')
         
         if action == 'query':
-            p = query.find('|')
-            topics = query[:p] if p != -1 else ''
-            query = query[p+1:] if p != -1 else ''
+            mgr = self.program.doclets_manager
+            token, rest = mgr.parse_token_payload(query)
+            p = rest.find('|')
+            topics = rest[:p] if p != -1 else ''
+            query = rest[p+1:] if p != -1 else ''
 
-            # Extract topics and set doclet directories
+            # Extract topics and set doclet directories (filtered to readable)
             if topics:
-                self.program.doclets_manager.set_doclets_dirs(topics)
+                requested = [t.strip() for t in topics.split(',') if t.strip()]
+                readable = [t for t in requested if mgr.can_read(t, token)]
+                for t in requested:
+                    if t not in readable:
+                        mgr.log_action(token, 'query', t, '', 'denied')
+                mgr.set_doclets_dirs(','.join(readable))
             
             # Extract message and check for LLM prefix
             use_llm = False
@@ -1300,14 +1443,14 @@ class Doclets(Handler):
                 results = res
 
         elif action == 'view':
-            # Extract doclet name
-            # doclet_name = message.get('name', '')
-            # if isinstance(doclet_name, bytes):
-            #     doclet_name = doclet_name.decode('utf-8', errors='replace')
-            # if not doclet_name:
-            #     raise RuntimeError(self.program, "No 'name' provided for view action")
-            # Read doclet content directly by name
-            results = self.program.doclets_manager.read_doclet_content(message['message'])
+            mgr = self.program.doclets_manager
+            token, doclet_name = mgr.parse_token_payload(query)
+            topic = doclet_name.split('/', 1)[0] if '/' in doclet_name else ''
+            if topic and not mgr.can_read(topic, token):
+                mgr.log_action(token, 'view', topic, doclet_name, 'denied')
+                results = f'Permission denied: no read access to topic {topic}'
+            else:
+                results = mgr.read_doclet_content(doclet_name)
         elif action == 'save':
             payload = message.get('message', '')
             if isinstance(payload, bytes):

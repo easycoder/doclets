@@ -76,6 +76,8 @@ The doclet server reads its LLM configuration from environment variables:
 | `DOCLETS_LLM_TIMEOUT` | `120` |
 | `DOCLETS_LLM_TEMPERATURE` | `0.3` — lower = more deterministic ranking; raise for more variety |
 | `DOCLETS_EMBED_CACHE` | `~/.doclet-embeddings` |
+| `DOCLETS_ACL_PATH` | `~/.doclet-save.acl` — topic permissions (see Access control) |
+| `DOCLETS_ACTIVITY_LOG` | `~/.doclet-activity.log` — append-only action log |
 | `DOCLETS_LLM_SYNTH` | synthesis-query markers (comma-separated) |
 | `DOCLETS_LLM_WARMUP` | `0` — set `1` to load the model at server startup so the first query is fast |
 
@@ -87,3 +89,26 @@ Note: the first LLM query after a server restart can take up to a minute (model
 load + first-time embedding); the client allows ~2 minutes for AI queries
 (plain queries keep the ~10s wait). If first-query latency bothers you, set
 `DOCLETS_LLM_WARMUP=1` on the server.
+
+## Access control (topics)
+
+Every request carries the caller's auth token as its first line
+(`token\n<request>`); an empty token means anonymous. Permissions live in
+`~/.doclet-save.acl` (version 2), additive over the older write-grants format:
+
+    { "version": 2,
+      "entries": [ {"name": "Alice", "token": "…", "topics": ["Linux", "*"]} ],
+      "topics": { "Private": {"owner": "…", "public": false,
+                                "readers": ["…"], "deleters": ["…"]} } }
+
+- **Unconfigured topics stay open** — anyone may read; writes via `entries`.
+- `entries` → create/modify rights (unchanged behaviour; `*` = all topics).
+- `topics.<name>.owner` → full rights (read/write/delete).
+- `public: true` → anyone may read; `false` → owner + `readers` only
+  (writers may also read what they edit).
+- `deleters` → who may delete (on unconfigured topics the write grant
+  still implies delete).
+
+Activity log: append-only JSONL at `~/.doclet-activity.log` recording
+create/modify/delete and permission denials (who did what and when; no
+reader tooling yet).

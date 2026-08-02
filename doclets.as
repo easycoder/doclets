@@ -206,12 +206,18 @@ Connected:
     clear TopicsReady
     set TopicsAvailable to array
     set TopicsSelected to array
-	gosub to SetupScreen
+    gosub to SetupScreen
+
+    ! Load any stored auth token (no prompt) so private topics are listed
+    get SaveAuthToken from storage as `save-auth-token`
+    if SaveAuthToken is `null` clear SaveAuthToken
+    if SaveAuthToken is `undefined` clear SaveAuthToken
 
     put `topics` into State
     send to ServerTopic
         sender MyTopic
         action `topics`
+        message SaveAuthToken
     go to WaitForReply
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -471,7 +477,7 @@ DoQuerySend:
     send to ServerTopic
         sender MyTopic
         action `query`
-        message TopicsDisplayed cat `|` cat Query
+        message SaveAuthToken cat newline cat TopicsDisplayed cat `|` cat Query
     go to WaitForReply
 
 ! Query-in-progress feedback: amber while waiting, red on failure
@@ -509,7 +515,7 @@ ResultsListClick:
     send to ServerTopic
         sender MyTopic
         action `view`
-        message Query
+        message SaveAuthToken cat newline cat Query
     go to WaitForReply
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -641,7 +647,7 @@ ProcessMessage:
                 send to ServerTopic
                     sender MyTopic
                     action `view`
-                    message CurrentDocletName
+                    message SaveAuthToken cat newline cat CurrentDocletName
                 go to WaitForReply
             end
             stop
@@ -691,7 +697,7 @@ ProcessMessage:
             send to ServerTopic
                 sender MyTopic
                 action `view`
-                message CurrentDocletName
+                message SaveAuthToken cat newline cat CurrentDocletName
             go to WaitForReply
         end
         else

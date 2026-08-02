@@ -10,6 +10,7 @@
     dictionary Sender
     dictionary ReceivedMessage
     list ResultList
+    list TopicsList
     queue MessageQueue
     variable Credentials
     variable Broker
@@ -83,8 +84,8 @@
 
 ! Get a list of the available doclet topics
 GetTopics:
-    put the doclet topics into Topics
-    put Topics into MessageText
+    doclets topics TopicsList from ReceivedMessage
+    put TopicsList into MessageText
     go to SendReply
 
 ! Process a query

@@ -202,6 +202,100 @@ def test_llm_nomatch_hint(base, fake):
     print("OK  test_llm_nomatch_hint (re-run hint on LLM no-match)")
 
 
+def test_acl_permissions():
+    tmp = Path(tempfile.mkdtemp(prefix="doclets-acl-"))
+    try:
+        home = tmp / "home"
+        corpus = make_corpus(home / "Doclets")  # home/Doclets/TestDocs/{2026,2025}
+        acl_path = tmp / "acl.json"
+        acl_path.write_text(json.dumps({
+            "version": 2,
+            "entries": [{"name": "Writer", "token": "tok-writer", "topics": ["Private", "TestDocs"]}],
+            "topics": {"Private": {"owner": "tok-owner", "public": False,
+                                   "readers": ["tok-reader"], "deleters": ["tok-deleter"]}}
+        }), encoding='utf-8')
+        log_path = tmp / "activity.log"
+        orig_home = mod.Path.home
+        mod.Path.home = staticmethod(lambda: home)
+        try:
+            mgr = mod.DocletManager()
+            mgr.set_doclets_dirs(str(corpus))
+            mgr.acl_path = str(acl_path)
+            mgr.activity_log_path = str(log_path)
+
+            # read
+            assert mgr.can_read("Private", "") is False
+            assert mgr.can_read("Private", "tok-owner") is True
+            assert mgr.can_read("Private", "tok-reader") is True
+            assert mgr.can_read("Private", "tok-writer") is True   # writers can read
+            assert mgr.can_read("Private", "other") is False
+            assert mgr.can_read("Unlisted", "") is True            # open by default
+
+            # write
+            assert mgr.can_write("Private", "tok-owner") is True
+            assert mgr.can_write("Private", "tok-writer") is True
+            assert mgr.can_write("Private", "tok-reader") is False
+            assert mgr.can_write("Private", "") is False
+
+            # delete
+            assert mgr.can_delete("Private", "tok-owner") is True
+            assert mgr.can_delete("Private", "tok-deleter") is True
+            assert mgr.can_delete("Private", "tok-writer") is False  # configured deleters win
+            assert mgr.can_delete("TestDocs", "tok-writer") is True  # unconfigured: write implies delete
+
+            # token payload parsing (client now sends `token\n<payload>` on every request)
+            assert mgr.parse_token_payload("tok\nrest") == ("tok", "rest")
+            assert mgr.parse_token_payload("") == ("", "")
+            assert mgr.parse_token_payload("tok-only") == ("tok-only", "")
+
+            # logging (writes + denials)
+            mgr.log_action("tok-owner", "save", "Private", "x.md", "ok")
+            mgr.log_action("", "view", "Private", "y.md", "denied")
+            lines = log_path.read_text(encoding='utf-8').strip().split('\n')
+            assert len(lines) == 2, lines
+            e1 = json.loads(lines[0])
+            assert e1["action"] == "save" and e1["result"] == "ok" and e1["token"] == "tok-owner"
+            e2 = json.loads(lines[1])
+            assert e2["token"] == "anonymous" and e2["result"] == "denied"
+
+            # save integration: writer saves ok + logged; outsider denied + logged
+            out = mgr.save_doclet_with_acl("tok-writer\nTestDocs/260101-00.md\nnew body")
+            assert out == "Saved TestDocs/260101-00.md", out
+            # corpus year dirs are named from the filename prefix (2601, not 2026)
+            assert (corpus / "2601" / "260101-00.md").read_text(encoding='utf-8') == "new body"
+            out = mgr.save_doclet_with_acl("tok-reader\nTestDocs/260101-00.md\nnope")
+            assert out == "Save failed: unauthorized", out
+            log_text = log_path.read_text(encoding='utf-8')
+            assert '"result": "ok"' in log_text and '"result": "denied"' in log_text
+        finally:
+            mod.Path.home = orig_home
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    print("OK  test_acl_permissions (read/write/delete, token payload, log, save auth)")
+
+
+def test_readable_topics(base):
+    tmp = base.parent
+    home = tmp / "home"
+    (home / "Doclets" / "PublicT").mkdir(parents=True)
+    (home / "Doclets" / "PrivateT").mkdir(parents=True)
+    acl_path = tmp / "acl2.json"
+    acl_path.write_text(json.dumps({
+        "version": 2, "entries": [],
+        "topics": {"PrivateT": {"owner": "tok-owner", "public": False}}
+    }), encoding='utf-8')
+    orig_home = mod.Path.home
+    mod.Path.home = staticmethod(lambda: home)
+    try:
+        mgr = mod.DocletManager()
+        mgr.acl_path = str(acl_path)
+        assert mgr.readable_topics("") == ["PublicT"]
+        assert mgr.readable_topics("tok-owner") == ["PrivateT", "PublicT"]
+    finally:
+        mod.Path.home = orig_home
+    print("OK  test_readable_topics (public vs private listing)")
+
+
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="doclets-test-"))
     try:
@@ -223,6 +317,8 @@ def main():
         test_llm_ready(mgr, fake)
         test_llm_nomatch_fallback(mgr, fake)
         test_llm_nomatch_hint(base, fake)
+        test_acl_permissions()
+        test_readable_topics(base)
         print("\nAll tests passed.")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
