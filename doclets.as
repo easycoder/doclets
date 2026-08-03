@@ -7,12 +7,12 @@
 
 !    debug compile
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Doclet query system
 
-!! @hash 22bcc580
+!! @hash 8fc7bb60
 !!!
 
+!! Doclet query system
+!!
 !! Declare every DOM element and script variable up front.
 !!
 !! AllSpeak requires declarations before use; keeping them together lets the body code read as plain prose.
@@ -96,15 +96,14 @@
 
 !    debug step
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Set up the UI
 
 !    debug step
 
-!   Set up MQTT
-!! @hash 7d17c5d6
+!! @hash 87665f96
 !!!
 
+!! Set up the UI
+!!
 !! Boot sequence: load MQTT credentials (stored locally on localhost, fetched from the credentials endpoint elsewhere), connect to the broker, and hand control to the event handlers.
 !!
 !! The `on mqtt connect`, `on mqtt message` and `every 20 ticks` handlers drive the rest of the program; the save-button enable/disable poll lives here too.
@@ -242,11 +241,11 @@ Connected:
         message SaveAuthToken
     go to WaitForReply
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Set up the main screen
-!! @hash 6d96cbe1
+!! @hash 085da3c4
 !!!
 
+!! Set up the main screen
+!!
 !! Render the Webson layout and attach every element the handlers will manipulate.
 !!
 !! Mobile devices get a full-width body, desktop a centred bordered card. All click handlers are registered once here.
@@ -368,9 +367,7 @@ SetupScreen:
     log `Topics selected: ` cat TopicsSelected
     return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Warn the user and abandon this run
-!! @hash 8a3ab478
+!! @hash 6f25d5f9
 !!!
 
 !! Fatal-error exit: warn the user and abandon the run.
@@ -380,11 +377,11 @@ AbandonShip:
     	cat newline cat `Please refresh this browser page to restart.`
     exit
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Here when the user clicks the Choose button
-!! @hash 98407b55
+!! @hash 122c840b
 !!!
 
+!! Here when the user clicks the Choose button
+!!
 !! Open the topic picker: build the checkbox list from the available topics and restore the previously selected ones.
 
 ChooseTopics:
@@ -427,11 +424,11 @@ ChooseTopics:
     set style `display` of TopicsDialogMask to `flex`
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Here when the user clicks a topic checkbox
-!! @hash 8dd70b1e
+!! @hash 02246ebb
 !!!
 
+!! Here when the user clicks a topic checkbox
+!!
 !! Toggle a topic's membership in the selection as its checkbox changes.
 
 TopicCheckboxClick:
@@ -448,11 +445,11 @@ TopicCheckboxClick:
     end
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Here when the user clicks Select All in the Choose dialog
-!! @hash 35f62e41
+!! @hash 41e49629
 !!!
 
+!! Here when the user clicks Select All in the Choose dialog
+!!
 !! Select every available topic in the picker.
 
 TopicsDialogSelectAllClick:
@@ -465,11 +462,11 @@ TopicsDialogSelectAllClick:
     end
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Here when the user clicks Deselect All in the Choose dialog
-!! @hash 3fae421f
+!! @hash 6e5cb5f0
 !!!
 
+!! Here when the user clicks Deselect All in the Choose dialog
+!!
 !! Clear every checkbox in the picker.
 
 TopicsDialogDeselectAllClick:
@@ -482,11 +479,11 @@ TopicsDialogDeselectAllClick:
     end
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Here when the user clicks the OK button in the Choose dialog
-!! @hash b5257db6
+!! @hash 4315b7da
 !!!
 
+!! Here when the user clicks the OK button in the Choose dialog
+!!
 !! Confirm the selection: rebuild the stored topic list and close the dialog.
 
 TopicsDialogOKClick:
@@ -510,11 +507,11 @@ TopicsDialogOKClick:
     set style `display` of TopicsDialogMask to `none`
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Here when the user clicks the Send button
-!! @hash e1436bc5
+!! @hash 6c49816e
 !!!
 
+!! Here when the user clicks the Send button
+!!
 !! Send a query to the server: plain text as-is, or prefixed with `LLM:` (and a much longer wait) for the AI button.
 !!
 !! The two button handlers share `DoQuerySend`, which also turns the query buttons amber while the request is in flight.
@@ -573,11 +570,11 @@ FailQueryButtons:
     enable LLMQueryButton
     return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Here when the user clicks an item in the results list
-!! @hash df5374e6
+!! @hash dccd4354
 !!!
 
+!! Here when the user clicks an item in the results list
+!!
 !! A result row was tapped: extract the doclet name and request its content.
 
 ResultsListClick:
@@ -594,11 +591,11 @@ ResultsListClick:
         message SaveAuthToken cat newline cat Query
     go to WaitForReply
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Here when the user clicks the exit button
-!! @hash e493caba
+!! @hash b375f1da
 !!!
 
+!! Here when the user clicks the exit button
+!!
 !! Log and exit (kept for completeness; the UI has no exit button).
 
 ExitButtonClick:
@@ -607,11 +604,11 @@ ExitButtonClick:
 !    save Config to ConfigFileName
     exit
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Wait for a reply. This may arrive in a different thread, so just save it
-!! @hash 0d250e99
+!! @hash 12666b1f
 !!!
 
+!! Wait for a reply. This may arrive in a different thread, so just save it
+!!
 !! Poll for the reply to the outstanding request.
 !!
 !! LLM queries get a ~4 minute allowance (the first call loads the model); plain queries keep the ~10 second wait. A timeout turns the query buttons red.
@@ -652,142 +649,137 @@ WaitForReply:
         wait 10 ticks
     end
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Process a received message
-!! @hash f32efd03
+!! @hash d06eb4f6
 !!!
 
-!! Dispatch a received reply according to the current state: topics, query results, doclet content, or the new/save/delete confirmations.
+!! Process a received message
 !!
-!! The ANSWER| prefix marks a prose (LLM synthesis) reply, rendered as a block rather than a button list.
+!! Dispatch a received reply by computed goto on the current state: the state value
+!! names a `PM-<state>` label below, so each handler is a self-contained block with
+!! its own documented section.
+!!
+!! The ANSWER| prefix marks a prose (LLM synthesis) reply, rendered as a block rather
+!! than a button list.
 
 ProcessMessage:
     gosub to ResetQueryButtons
-    if State is `topics`
-    begin
-        if Action is `confirm` gosub to SendQueryButtonConfirmation
+    ! Dispatch by State value: every state a request can be in flight for needs a
+    ! matching `PM-<state>` label below (State=idle is the no-op PM-idle).
+    ! An unknown State is a runtime error, not a silent fall-through.
+    go to label `PM-` cat State
+    stop
+
+!! @hash 804beb3d
+!!!
+
+!! PM-idle — stray reply while idle
+!!
+!! No request is in flight while State is idle, so a stray reply is ignored — matching
+!! the pre-goto behaviour where an unmatched State fell through to `stop`.
+
+PM-idle:
+    stop
+
+!! @hash f86f6b7d
+!!!
+
+!! PM-topics — server replied with the topic list
+!!
+!! Server replied to the topics request: cache the topic list, update the topics label,
+!! and re-enable the query controls.
+
+PM-topics:
+    if Action is `confirm` gosub to SendQueryButtonConfirmation
 !        log `Topics available: ` cat ReceivedMessage
-        put ReceivedMessage into storage as `topics-available`
-        put ReceivedMessage into TopicsAvailable
-        set TopicsReady
-        gosub to UpdateTopicsLabel
-        enable QueryInput
-        enable ChooseTopicsButton
-        gosub to UpdateSendButtonState
-    end
-    else if State is `query`
-    begin
-        enable QueryInput
-        if left 7 of ReceivedMessage is `ANSWER|`
-        begin
-            ! `from N of` is 0-based (substr), so 7 skips the 7-char `ANSWER|` marker.
-            put from 7 of ReceivedMessage into Text
-            replace newline with `<br>` in Text
-            set content of DocletListPanel to `<div style='padding:1em;font-size:1.05em;line-height:1.5;word-wrap:break-word;'>` cat Text cat `</div>`
-            stop
-        end
-        if ReceivedMessage is `[]`
-        begin
-            set content of DocletListPanel to `<div style='font-size:1.3em;font-weight:bold;text-align:center;padding-top:1em;'>No matching doclets</div>`
-            stop
-        end
-        put ReceivedMessage into DocletList
-        log DocletList
+    put ReceivedMessage into storage as `topics-available`
+    put ReceivedMessage into TopicsAvailable
+    set TopicsReady
+    gosub to UpdateTopicsLabel
+    enable QueryInput
+    enable ChooseTopicsButton
+    gosub to UpdateSendButtonState
+    stop
 
-        put empty into ResultsMarkup
-        put 0 into N
-        while N is less than json count of DocletList
-        begin
-            put element N of DocletList into Text
-            put the position of `:` in Text into P
-            if P is greater than -1
-            begin
-                put left P of Text into Query
-                add 1 to P
-                put Query cat `<br>` cat from P of Text into Text
-            end
-            put ResultsMarkup
-                cat `<button id='DocletButton-` cat N cat `' style='display:block;width:100%;text-align:left;margin-bottom:0.3em;'>`
-                cat Text
-                cat `</button>`
-                into ResultsMarkup
-            add 1 to N
-        end
-        set content of DocletListPanel to ResultsMarkup
+!! @hash 025ce8cb
+!!!
 
-        set the elements of DocletButton to json count of DocletList
-        put 0 into N
-        while N is less than elements of DocletButton
-        begin
-            index DocletButton to N
-            attach DocletButton to `DocletButton-` cat N
-            add 1 to N
-        end
-        on click DocletButton go to ResultsListClick
-    end
-    else if State is `content`
+!! PM-query — server replied with query results
+!!
+!! Server replied to a query. An `ANSWER|` prefix marks a prose (LLM synthesis) reply
+!! rendered as a block rather than a button list; `[]` means no matching doclets.
+!! Otherwise the doclet list is rebuilt as one button per result, each opening its doclet.
+
+PM-query:
+    enable QueryInput
+    if left 7 of ReceivedMessage is `ANSWER|`
     begin
-        enable QueryInput
-        put the position of `Error reading file:` in ReceivedMessage into P
+        ! `from N of` is 0-based (substr), so 7 skips the 7-char `ANSWER|` marker.
+        put from 7 of ReceivedMessage into Text
+        replace newline with `<br>` in Text
+        set content of DocletListPanel to `<div style='padding:1em;font-size:1.05em;line-height:1.5;word-wrap:break-word;'>` cat Text cat `</div>`
+        stop
+    end
+    if ReceivedMessage is `[]`
+    begin
+        set content of DocletListPanel to `<div style='font-size:1.3em;font-weight:bold;text-align:center;padding-top:1em;'>No matching doclets</div>`
+        stop
+    end
+    put ReceivedMessage into DocletList
+    log DocletList
+
+    put empty into ResultsMarkup
+    put 0 into N
+    while N is less than json count of DocletList
+    begin
+        put element N of DocletList into Text
+        put the position of `:` in Text into P
         if P is greater than -1
         begin
-            alert ReceivedMessage
-            stop
+            put left P of Text into Query
+            add 1 to P
+            put Query cat `<br>` cat from P of Text into Text
         end
-        if left 8 of ReceivedMessage is `Created `
-        begin
-            if CurrentDocletName is not empty
-            begin
-                put empty into ReceivedMessage
-                send to ServerTopic
-                    sender MyTopic
-                    action `view`
-                    message SaveAuthToken cat newline cat CurrentDocletName
-                go to WaitForReply
-            end
-            stop
-        end
-        put ReceivedMessage into MessageText
-        put `view` into DocletViewMode
-        set style `display` of DocletEditText to `none`
-        set style `display` of DocletViewContent to `block`
-        set attribute `data-markdown` of DocletViewContent to `1`
-        set content of DocletViewContent to MessageText
-        scroll DocletViewContent to 0
-        set content of DocletViewEdit to `Edit`
-        enable DocletViewEdit
-        enable DocletViewDelete
-        set style `display` of DocletViewDelete to `block`
-        disable DocletViewSave
-        set style `display` of DocletViewSave to `none`
-        set style `display` of DocletViewMask to `flex`
-        if AutoStartEdit
-        begin
-            clear AutoStartEdit
-            gosub to DocletViewEditClick
-        end
+        put ResultsMarkup
+            cat `<button id='DocletButton-` cat N cat `' style='display:block;width:100%;text-align:left;margin-bottom:0.3em;'>`
+            cat Text
+            cat `</button>`
+            into ResultsMarkup
+        add 1 to N
     end
-    else if State is `new`
+    set content of DocletListPanel to ResultsMarkup
+
+    set the elements of DocletButton to json count of DocletList
+    put 0 into N
+    while N is less than elements of DocletButton
     begin
-        clear NewInFlight
-        gosub to ResetNewTopicButtons
-        enable NewDocletCancel
-        enable QueryInput
-        put ReceivedMessage into MessageText
-        if left 8 of MessageText is `Created `
+        index DocletButton to N
+        attach DocletButton to `DocletButton-` cat N
+        add 1 to N
+    end
+    on click DocletButton go to ResultsListClick
+    stop
+
+!! @hash 6a527e38
+!!!
+
+!! PM-content — server replied with the doclet text
+!!
+!! Server replied to a view request. `Error reading file:` is surfaced as an alert;
+!! `Created ` triggers a re-view of the renamed doclet. Otherwise the doclet text is
+!! rendered in view mode (auto-entering edit mode when AutoStartEdit is set).
+
+PM-content:
+    enable QueryInput
+    put the position of `Error reading file:` in ReceivedMessage into P
+    if P is greater than -1
+    begin
+        alert ReceivedMessage
+        stop
+    end
+    if left 8 of ReceivedMessage is `Created `
+    begin
+        if CurrentDocletName is not empty
         begin
-            if SaveAuthToken is not empty
-            begin
-                put SaveAuthToken into storage as `save-auth-token`
-            end
-            clear NewRequestID
-            put MessageText into CurrentDocletName
-            replace `Created ` with empty in CurrentDocletName
-            set style `display` of NewDocletDialogMask to `none`
-            set style `display` of TopicsDialogMask to `none`
-            set style `display` of DocletViewMask to `none`
-            set AutoStartEdit
-            put `content` into State
             put empty into ReceivedMessage
             send to ServerTopic
                 sender MyTopic
@@ -795,125 +787,199 @@ ProcessMessage:
                 message SaveAuthToken cat newline cat CurrentDocletName
             go to WaitForReply
         end
-        else
-        begin
-            put the position of `unauthorized` in MessageText into P
-            if P is greater than -1
-            begin
-                clear SaveAuthToken
-                remove `save-auth-token` from storage
-                if NewRetry is 0
-                begin
-                    put 1 into NewRetry
-                    gosub to EnsureSaveAuthToken
-                    if SaveAuthToken is empty
-                    begin
-                        alert `Create denied and no new token entered; create cancelled`
-                        stop
-                    end
-                    put empty into ReceivedMessage
-                    send to ServerTopic
-                        sender MyTopic
-                        action `new`
-                        message SaveAuthToken cat newline cat NewDocletTopic cat newline cat NewRequestID
-                    go to WaitForReply
-                end
-            end
-            clear NewRequestID
-            alert MessageText
-        end
+        stop
     end
-    else if State is `save`
+    put ReceivedMessage into MessageText
+    put `view` into DocletViewMode
+    set style `display` of DocletEditText to `none`
+    set style `display` of DocletViewContent to `block`
+    set attribute `data-markdown` of DocletViewContent to `1`
+    set content of DocletViewContent to MessageText
+    scroll DocletViewContent to 0
+    set content of DocletViewEdit to `Edit`
+    enable DocletViewEdit
+    enable DocletViewDelete
+    set style `display` of DocletViewDelete to `block`
+    disable DocletViewSave
+    set style `display` of DocletViewSave to `none`
+    set style `display` of DocletViewMask to `flex`
+    if AutoStartEdit
     begin
-        enable QueryInput
-        put ReceivedMessage into MessageText
-        put the position of `Saved ` in MessageText into P
-        if P is greater than -1
-        begin
-            if SaveAuthToken is not empty
-            begin
-                put SaveAuthToken into storage as `save-auth-token`
-            end
-            ! Refresh the current result set so list entries reflect saved changes
-            alert MessageText
-            go to SendQueryClick
-        end
-        put the position of `unauthorized` in MessageText into P
-        if P is greater than -1
-        begin
-            clear SaveAuthToken
-            remove `save-auth-token` from storage
-            if SaveRetry is 0
-            begin
-                put 1 into SaveRetry
-                gosub to EnsureSaveAuthToken
-                if SaveAuthToken is empty
-                begin
-                    disable DocletViewSave
-                    enable DocletViewEdit
-                    alert `Save denied and no new token entered; save cancelled`
-                    stop
-                end
-                put DocletEditText into MessageText
-                put empty into ReceivedMessage
-                send to ServerTopic
-                    sender MyTopic
-                    action `save`
-                    message SaveAuthToken cat newline cat CurrentDocletName cat newline cat MessageText
-                go to WaitForReply
-            end
-        end
-        disable DocletViewSave
-        enable DocletViewEdit
-        alert MessageText
+        clear AutoStartEdit
+        gosub to DocletViewEditClick
     end
-    else if State is `delete`
-    begin
-        enable QueryInput
-        put ReceivedMessage into MessageText
-        put the position of `Deleted ` in MessageText into P
-        if P is greater than -1
-        begin
-            if SaveAuthToken is not empty
-            begin
-                put SaveAuthToken into storage as `save-auth-token`
-            end
-            alert MessageText
-            gosub to CloseDocletView
-            go to SendQueryClick
-        end
+    stop
 
+!! @hash 6f449eb3
+!!!
+
+!! PM-new — server replied to a create request
+!!
+!! Server replied to a create request. `Created ` stores the auth token, hides the
+!! dialog and views the new doclet; `unauthorized` clears the token and retries once
+!! with a freshly-entered token.
+
+PM-new:
+    clear NewInFlight
+    gosub to ResetNewTopicButtons
+    enable NewDocletCancel
+    enable QueryInput
+    put ReceivedMessage into MessageText
+    if left 8 of MessageText is `Created `
+    begin
+        if SaveAuthToken is not empty
+        begin
+            put SaveAuthToken into storage as `save-auth-token`
+        end
+        clear NewRequestID
+        put MessageText into CurrentDocletName
+        replace `Created ` with empty in CurrentDocletName
+        set style `display` of NewDocletDialogMask to `none`
+        set style `display` of TopicsDialogMask to `none`
+        set style `display` of DocletViewMask to `none`
+        set AutoStartEdit
+        put `content` into State
+        put empty into ReceivedMessage
+        send to ServerTopic
+            sender MyTopic
+            action `view`
+            message SaveAuthToken cat newline cat CurrentDocletName
+        go to WaitForReply
+    end
+    else
+    begin
         put the position of `unauthorized` in MessageText into P
         if P is greater than -1
         begin
             clear SaveAuthToken
             remove `save-auth-token` from storage
-            if DeleteRetry is 0
+            if NewRetry is 0
             begin
-                put 1 into DeleteRetry
+                put 1 into NewRetry
                 gosub to EnsureSaveAuthToken
                 if SaveAuthToken is empty
                 begin
-                    alert `Delete denied and no new token entered; delete cancelled`
+                    alert `Create denied and no new token entered; create cancelled`
                     stop
                 end
                 put empty into ReceivedMessage
                 send to ServerTopic
                     sender MyTopic
-                    action `delete`
-                    message SaveAuthToken cat newline cat CurrentDocletName
+                    action `new`
+                    message SaveAuthToken cat newline cat NewDocletTopic cat newline cat NewRequestID
                 go to WaitForReply
             end
         end
+        clear NewRequestID
         alert MessageText
     end
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Switch the doclet view into edit mode
-!! @hash d72c7cab
+!! @hash ad72d6af
 !!!
 
+!! PM-save — server replied to a save request
+!!
+!! Server replied to a save request. `Saved ` refreshes the current result set;
+!! `unauthorized` clears the token and retries once.
+
+PM-save:
+    enable QueryInput
+    put ReceivedMessage into MessageText
+    put the position of `Saved ` in MessageText into P
+    if P is greater than -1
+    begin
+        if SaveAuthToken is not empty
+        begin
+            put SaveAuthToken into storage as `save-auth-token`
+        end
+        ! Refresh the current result set so list entries reflect saved changes
+        alert MessageText
+        go to SendQueryClick
+    end
+    put the position of `unauthorized` in MessageText into P
+    if P is greater than -1
+    begin
+        clear SaveAuthToken
+        remove `save-auth-token` from storage
+        if SaveRetry is 0
+        begin
+            put 1 into SaveRetry
+            gosub to EnsureSaveAuthToken
+            if SaveAuthToken is empty
+            begin
+                disable DocletViewSave
+                enable DocletViewEdit
+                alert `Save denied and no new token entered; save cancelled`
+                stop
+            end
+            put DocletEditText into MessageText
+            put empty into ReceivedMessage
+            send to ServerTopic
+                sender MyTopic
+                action `save`
+                message SaveAuthToken cat newline cat CurrentDocletName cat newline cat MessageText
+            go to WaitForReply
+        end
+    end
+    disable DocletViewSave
+    enable DocletViewEdit
+    alert MessageText
+    stop
+
+!! @hash 8cfa0cf9
+!!!
+
+!! PM-delete — server replied to a delete request
+!!
+!! Server replied to a delete request. `Deleted ` closes the doclet view and refreshes
+!! the result set; `unauthorized` clears the token and retries once.
+
+PM-delete:
+    enable QueryInput
+    put ReceivedMessage into MessageText
+    put the position of `Deleted ` in MessageText into P
+    if P is greater than -1
+    begin
+        if SaveAuthToken is not empty
+        begin
+            put SaveAuthToken into storage as `save-auth-token`
+        end
+        alert MessageText
+        gosub to CloseDocletView
+        go to SendQueryClick
+    end
+
+    put the position of `unauthorized` in MessageText into P
+    if P is greater than -1
+    begin
+        clear SaveAuthToken
+        remove `save-auth-token` from storage
+        if DeleteRetry is 0
+        begin
+            put 1 into DeleteRetry
+            gosub to EnsureSaveAuthToken
+            if SaveAuthToken is empty
+            begin
+                alert `Delete denied and no new token entered; delete cancelled`
+                stop
+            end
+            put empty into ReceivedMessage
+            send to ServerTopic
+                sender MyTopic
+                action `delete`
+                message SaveAuthToken cat newline cat CurrentDocletName
+            go to WaitForReply
+        end
+    end
+    alert MessageText
+    stop
+
+!! @hash 40a5827e
+!!!
+
+!! Switch the doclet view into edit mode
+!!
 !! Toggle the doclet view between read mode and the edit textarea.
 
 DocletViewEditClick:
@@ -945,11 +1011,11 @@ DocletViewEditClick:
     end
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Enable Save only when edit content differs from baseline MessageText
-!! @hash 3d344857
+!! @hash 73a8f6ee
 !!!
 
+!! Enable Save only when edit content differs from baseline MessageText
+!!
 !! Enable Save only when the edit buffer differs from the last-loaded content.
 
 DocletEditChanged:
@@ -967,11 +1033,11 @@ DocletEditChanged:
     end
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Open the New doclet topic picker dialog
-!! @hash 5ea7d9fc
+!! @hash 2b30b7c3
 !!!
 
+!! Open the New doclet topic picker dialog
+!!
 !! Open the new-doclet picker: choose a topic, or create directly when only one topic is selected.
 
 DocletViewNewClick:
@@ -1029,11 +1095,11 @@ DocletViewNewClick:
     set style `display` of NewDocletDialogMask to `flex`
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Create immediately when a topic button is tapped
-!! @hash 2b6d12d7
+!! @hash 5893f55f
 !!!
 
+!! Create immediately when a topic button is tapped
+!!
 !! Create in the tapped topic immediately, disabling the other topic buttons while the request is in flight.
 
 NewTopicButtonClick:
@@ -1059,11 +1125,11 @@ NewTopicButtonClick:
     disable NewDocletCancel
     go to NewDocletCreateClick
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Cancel New doclet creation
-!! @hash 052c69e8
+!! @hash fcc5a391
 !!!
 
+!! Cancel New doclet creation
+!!
 !! Cancel a pending new-doclet creation and restore the topic buttons.
 
 NewDocletCancelClick:
@@ -1092,11 +1158,11 @@ ResetNewTopicButtons:
     end
     return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Create a New doclet in the selected topic
-!! @hash 11f9cf0e
+!! @hash d28cf650
 !!!
 
+!! Create a New doclet in the selected topic
+!!
 !! Send the create request with a fresh request id, remembering the in-flight state.
 
 NewDocletCreateClick:
@@ -1122,11 +1188,11 @@ NewDocletCreateClick:
         message SaveAuthToken cat newline cat NewDocletTopic cat newline cat NewRequestID
     go to WaitForReply
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Save edited doclet content
-!! @hash bb61fdab
+!! @hash 0e4e922c
 !!!
 
+!! Save edited doclet content
+!!
 !! Send the edited content to the server for saving.
 
 DocletViewSaveClick:
@@ -1145,11 +1211,11 @@ DocletViewSaveClick:
         message SaveAuthToken cat newline cat CurrentDocletName cat newline cat MessageText
     go to WaitForReply
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Delete current doclet from prettified view
-!! @hash f34016aa
+!! @hash 7f037512
 !!!
 
+!! Delete current doclet from prettified view
+!!
 !! Confirm and request deletion of the current doclet.
 
 DocletViewDeleteClick:
@@ -1172,11 +1238,11 @@ DocletViewDeleteClick:
         message SaveAuthToken cat newline cat CurrentDocletName
     go to WaitForReply
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Close the doclet view popup
-!! @hash dbb10d00
+!! @hash 4b33f905
 !!!
 
+!! Close the doclet view popup
+!!
 !! Close the doclet view popup.
 
 DocletViewCloseClick:
@@ -1202,11 +1268,11 @@ CloseDocletView:
     set style `display` of DocletViewMask to `none`
     return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Set the text of the topics label
-!! @hash 579f3953
+!! @hash 02a63368
 !!!
 
+!! Set the text of the topics label
+!!
 !! Refresh the topics label and the send-button state after any selection change.
 
 UpdateTopicsLabel:
@@ -1242,11 +1308,11 @@ UpdateTopicsLabel:
     gosub to UpdateSendButtonState
     return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Enable Send only when topics have loaded and at least one topic is chosen
-!! @hash d6fbe33b
+!! @hash 76871ff4
 !!!
 
+!! Enable Send only when topics have loaded and at least one topic is chosen
+!!
 !! Send is enabled only when topics have loaded and at least one is chosen.
 
 UpdateSendButtonState:
@@ -1273,11 +1339,11 @@ SendConfirmation:
         action `confirm`
     return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Triple-tap title to show/hide the tracer panel
-!! @hash fcc915f8
+!! @hash a21ee742
 !!!
 
+!! Triple-tap title to show/hide the tracer panel
+!!
 !! Triple-tap the title to show or hide the debug/tracer panel.
 
 TitleBannerClick:
@@ -1325,11 +1391,11 @@ ToggleDebugRow:
     end
     return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Ensure we have a save auth token (stored locally, prompt only if missing)
-!! @hash 7e467b8b
+!! @hash 42b8ca5d
 !!!
 
+!! Ensure we have a save auth token (stored locally, prompt only if missing)
+!!
 !! Fetch the saved auth token, prompting for one only when none is stored.
 
 EnsureSaveAuthToken:

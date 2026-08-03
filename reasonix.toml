@@ -1,0 +1,8 @@
+[permissions]
+allow = ["Bash=cd /home/graham/dev/doclets && grep -n 'WaitForReply\\|variable DbgRowVisible\\|SendQueryClick' doclets.as | head; sed -n \"$(grep -n '^WaitForReply:' doclets.as | cut -d: -f1),+25p\" doclets.as", "Bash=cd /home/graham/dev/doclets && python3 - <<'EOF'\nimport asdoc_check\ntext = open('doclets.as').read()\nsections, issues, _ = asdoc_check.parse(text)\nfor s in sections:\n    print(f\"sec start={s.start_line} end={s.end_line} hash={s.meta.get('hash')} ncode={len(s.code)} firstcode={s.code_line_numbers[0] if s.code_line_numbers else '-'}\")\nEOF"]
+
+[sandbox]
+# AllSpeak repo is the canonical home for asedit.as, learn/, asdoc-check and the
+# JS runtime; doclets mirrors/symlinks some of it. Allowed as a write root so the
+# shared files can be edited at their source (see AGENTS.md: Canonical source).
+allow_write = ["/home/graham/dev/allspeak"]
