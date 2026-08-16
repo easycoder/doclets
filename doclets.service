@@ -31,24 +31,20 @@
 # allspeak binary lives wherever pip put it — /usr/local/bin or ~/.local/bin).
 
 [Unit]
-Description=Doclets MQTT server (AllSpeak)
+Description=Doclet Server
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=doclets
-Group=doclets
-WorkingDirectory=/opt/doclets
-ExecStart=/usr/local/bin/allspeak docletServer.as
+User=graham
+WorkingDirectory=/home/graham/dev/doclets
+ExecStart=/home/graham/.local/bin/allspeak docletServer.as
 Restart=on-failure
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
-# Optional LLM configuration (the defaults below are already the code's):
-# Environment=DOCLETS_LLM_MODEL=qwen3.5:9b
-# Environment=DOCLETS_EMBED_MODEL=nomic-embed-text
-# Environment=DOCLETS_OLLAMA_URL=http://localhost:11434
-NoNewPrivileges=true
+Environment=DOCLETS_LLM_WARMUP=1
+Environment=DOCLETS_LLM_MODEL=qwen3.5:4b
 
 [Install]
 WantedBy=multi-user.target
