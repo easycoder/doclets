@@ -1,6 +1,5 @@
 {
-  "legacy_20260731-205210_888451493-deepseek-v4-flash_07c9378db102": "manual",
-  "topic_20260803-165830_4392154b6eb78d9b": "auto",
-  "topic_20260808-152830_1b79499735c72ad5": "auto",
-  "topic_20260808-160654_7ac0d599dbcca194": "manual"
+  "topic_20260803-165830_4392154b6eb78d9b": "manual",
+  "topic_20260808-160654_7ac0d599dbcca194": "manual",
+  "topic_20260821-191032_220be8be02d6f7a2": "manual"
 }

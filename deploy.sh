@@ -8,9 +8,7 @@ set -euo pipefail
 #   doclets.as    – the client script (fetched by the loader)
 #   doclets.json  – Webson screen layout
 #
-# It only copies/pushes; it never deletes. Leftover .ecs files on the site
-# (doclets.ecs, scripted.*, ...) are no longer used — remove them by hand once
-# the new client is confirmed working.
+# It only copies/pushes; it never deletes.
 #
 # Target resolution, in order of precedence:
 #   1. a command-line target:
@@ -107,8 +105,6 @@ cat <<EOF
 Done.
 
 Reminders:
-- Leftover .ecs files on the site (doclets.ecs, scripted.*) are no longer used;
-  delete them manually once the new client is confirmed working.
 - The site's credentials.php reads ../doclets.eclecity.net.txt (one level above
   the web root); the live copy is already correct — nothing to do.
 - Browsers may cache index.html for up to 10 minutes; hard-refresh

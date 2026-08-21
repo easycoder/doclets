@@ -382,14 +382,33 @@ AbandonShip:
 
 !! Here when the user clicks the Choose button
 !!
-!! Open the topic picker: build the checkbox list from the available topics and restore the previously selected ones.
+!! Open the topic picker: show the dialog and build the checkbox list from the
+!! stored selection.
 
 ChooseTopics:
     enable QueryInput
+    gosub to BuildTopicsList
+    set style `display` of TopicsDialogMask to `flex`
+    stop
+
+!! @hash 3fa8aa5d
+!!!
+
+!! Build (or rebuild) the checkbox list in the Choose dialog from the stored
+!! selection.
+!!
+!! The list is rebuilt with fresh DOM nodes on every call. This is deliberate:
+!! once the user has clicked a checkbox its checkedness no longer follows the
+!! `checked` attribute, so simply removing the attribute cannot clear it. Fresh
+!! nodes are always unchecked, and the restore loop below re-checks exactly the
+!! stored selection — so Select All and Deselect All are guaranteed to match
+!! TopicsSelected, whatever the user clicked beforehand.
+
+BuildTopicsList:
     if TopicsAvailable is empty set TopicsListed to array
     else json split TopicsAvailable on `,` into TopicsListed
 
-    ! Build the topic list
+    ! Build the topic list markup
     put empty into TopicsMarkup
     put 0 into N
     while N is less than json count of TopicsListed
@@ -406,7 +425,7 @@ ChooseTopics:
     end
     set content of TopicsDialogList to TopicsMarkup
 
-    ! Set the checkboxes
+    ! Set the checkboxes from the stored selection
     set the elements of TopicCheckbox to json count of TopicsListed
     put 0 into N
     while N is less than elements of TopicCheckbox
@@ -420,11 +439,9 @@ ChooseTopics:
         end
         add 1 to N
     end
+    return
 
-    set style `display` of TopicsDialogMask to `flex`
-    stop
-
-!! @hash 02246ebb
+!! @hash c61c5bea
 !!!
 
 !! Here when the user clicks a topic checkbox
@@ -450,36 +467,39 @@ TopicCheckboxClick:
 
 !! Here when the user clicks Select All in the Choose dialog
 !!
-!! Select every available topic in the picker.
+!! Select every available topic: record the full selection, then rebuild the
+!! list so the checkboxes match it.
 
 TopicsDialogSelectAllClick:
+    set TopicsSelected to array
+    put empty into TopicsDisplayed
     put 0 into N
-    while N is less than elements of TopicCheckbox
+    while N is less than json count of TopicsListed
     begin
-        index TopicCheckbox to N
-        set attribute `checked` of TopicCheckbox
+        put item N of TopicsListed into Text
+        if TopicsDisplayed is not empty put TopicsDisplayed cat `,` into TopicsDisplayed
+        put TopicsDisplayed cat Text into TopicsDisplayed
+        json add Text to TopicsSelected
         add 1 to N
     end
+    gosub to BuildTopicsList
     stop
 
-!! @hash 6e5cb5f0
+!! @hash 4f992973
 !!!
 
 !! Here when the user clicks Deselect All in the Choose dialog
 !!
-!! Clear every checkbox in the picker.
+!! Clear every checkbox in the picker and empty the stored selection, by
+!! rebuilding the list from the (now empty) selection.
 
 TopicsDialogDeselectAllClick:
-    put 0 into N
-    while N is less than elements of TopicCheckbox
-    begin
-        index TopicCheckbox to N
-        remove attribute `checked` of TopicCheckbox
-        add 1 to N
-    end
+    set TopicsSelected to array
+    put empty into TopicsDisplayed
+    gosub to BuildTopicsList
     stop
 
-!! @hash 4315b7da
+!! @hash 947d92d4
 !!!
 
 !! Here when the user clicks the OK button in the Choose dialog
