@@ -13,7 +13,9 @@ EasyCoder). Client/server communication uses MQTT.
 - `index.html` — entry point; loads `allspeak-min.js` from `https://allspeak.ai/dist/`
 - `allspeak-js/`, `allspeak-py/` — vendored AllSpeak runtimes for local development
   (`relink-allspeak.sh` replaces the JS files with symlinks to your AllSpeak checkout)
-- `credentials.php`, `credentials-local`, `doclets.eclecity.net.txt` — MQTT credentials
+- `credentials.php` — serves the MQTT credentials JSON; `credentials-local.example` /
+  `doclets.eclecity.net.txt.example` — credential schemas (the real credential
+  files are gitignored; see `.gitignore`)
 - `docletServer.py` — cron helper that restarts `docletServer.as` daily
 - `doclets` — installer script for the server (installs the `allspeak-ai` pip package)
 

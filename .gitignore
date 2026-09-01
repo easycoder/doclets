@@ -211,3 +211,14 @@ __marimo__/
 
 # Local machine deploy settings (see deploy.conf.example)
 deploy.conf
+
+# Secrets / credentials — never commit. Real values live only on disk / live host.
+# Schema is in credentials-local.example and doclets.eclecity.net.txt.example.
+/credentials-local
+/credentials
+/doclets.eclecity.net.txt
+/mqtt-client-token.txt
+/token
+/key
+/encrypt
+/decrypt

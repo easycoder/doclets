@@ -1,8 +1,9 @@
 'use strict';
 // Headless smoke-test of doclets.as under the AllSpeak JS runtime.
-// DEV-ONLY diagnostic tool — not part of the deployed app. The credentials in
-// the prompt mock below are the localhost dev values from credentials-local /
-// doclets.eclecity.net.txt (already committed in this repo).
+// DEV-ONLY diagnostic tool — not part of the deployed app. The prompt mock
+// below reads the localhost dev values from the gitignored credentials-local
+// file (falling back to placeholders on a fresh clone — MQTT is stubbed, so
+// the real values are never sent anywhere).
 // Loads the vendored allspeak-js sources in bundle order into a browser shim,
 // then runs doclets.as for real: localhost credentials path, Webson render,
 // attach, storage, prompts, and MQTT connect (stubbed - captures the URL).
@@ -66,10 +67,20 @@ document.location = { hostname: HOST, href: pageURL, protocol: HOST === 'localho
 const localStorage = { _d: {}, getItem(k) { return this._d[k] ?? null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem(k) { delete this._d[k]; }, clear() { this._d = {}; } };
 
 const prompts = [];
+// Dev credentials come from the gitignored credentials-local file; on a fresh
+// clone fall back to placeholders (MQTT is stubbed, so values never leave the shim).
+const devCreds = (() => {
+  try {
+    const creds = JSON.parse(fs.readFileSync(path.join(ROOT, 'credentials-local'), 'utf8'));
+    const mac = String(creds.mac || '');
+    return [creds.broker, creds.username, creds.password, mac.endsWith('/request') ? mac : mac + '/request'];
+  } catch (e) {
+    return ['mqtt.example.org', 'YOUR_USERNAME', 'YOUR_PASSWORD', 'aa:bb:cc:dd:ee:ff/request'];
+  }
+})();
 const promptFn = (msg) => {
   prompts.push(msg);
-  const vals = ['rbrheating.duckdns.org', 'rbr', 'Ev5nt-H0r1zon', 'a8:41:f4:d3:19:dd/request'];
-  return prompts.length <= vals.length ? vals[prompts.length - 1] : '';
+  return prompts.length <= devCreds.length ? devCreds[prompts.length - 1] : '';
 };
 const alerts = [];
 const alertFn = (m) => { alerts.push(String(m)); };

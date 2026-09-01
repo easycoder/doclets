@@ -17,7 +17,7 @@
 #      ~/Doclets directory (year folders), e.g. /home/doclets/Doclets/.
 #   4. Optional but recommended: create /opt/doclets/credentials containing the
 #      MQTT credentials JSON ({"broker":...,"username":...,"password":...,"mac":...}
-#      — see credentials-local; mac WITHOUT the /request suffix). Otherwise the
+#      — see credentials-local.example; mac WITHOUT the /request suffix). Otherwise the
 #      server fetches https://doclets.eclecity.net/credentials.php at startup.
 #   5. Install and start:
 #        sudo cp doclets.service /etc/systemd/system/
