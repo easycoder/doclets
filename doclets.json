@@ -106,7 +106,7 @@
             "#element": "textarea",
             "@id": "QueryInput",
             "@rows": "3",
-            "@placeholder": "Enter query",
+            "@placeholder": "Enter query (leave blank for all doclets)",
             "flex": 1,
             "box-sizing": "border-box",
             "padding": "0.4em 0.6em",
