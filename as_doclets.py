@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import re
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
@@ -30,9 +31,44 @@ class DocletManager():
         self.embed_model = os.environ.get('DOCLETS_EMBED_MODEL', 'nomic-embed-text')  # Embedding model
         self.llm_top_k = int(os.environ.get('DOCLETS_LLM_TOP_K', '20'))
         self.llm_num_ctx = int(os.environ.get('DOCLETS_LLM_NUM_CTX', '8192'))
-        self.llm_keep_alive = os.environ.get('DOCLETS_LLM_KEEP_ALIVE', '30m')
+        # How long Ollama keeps a model resident after a request, and the window
+        # of doclet activity the server treats as one session (see beat). Short,
+        # so that a finished session doesn't sit on the GPU.
+        self.llm_keep_alive = os.environ.get('DOCLETS_LLM_KEEP_ALIVE', '60s')
         self.llm_timeout = int(os.environ.get('DOCLETS_LLM_TIMEOUT', '120'))
         self.llm_temperature = float(os.environ.get('DOCLETS_LLM_TEMPERATURE', '0.3'))
+        # Keeping the model resident. The server loop calls beat() every tick: it
+        # refreshes the keep-alive window while the client is active (so a doclet
+        # session loads the model once) and drops it as soon as a video workload
+        # wants the GPU.
+        self.llm_alive = os.environ.get('DOCLETS_LLM_ALIVE', '1').lower() in ('1', 'true', 'yes')
+        self.llm_beat_secs = float(os.environ.get('DOCLETS_LLM_BEAT', '30'))
+        self.llm_video_procs = {
+            p.strip().lower() for p in os.environ.get(
+                'DOCLETS_LLM_VIDEO_PROCS',
+                'kdenlive,melt,ffmpeg,ffplay,vlc,mpv,obs,shotcut,olive-editor,'
+                'handbrake,handbrakecli,resolve,davinci-resolve,blender'
+            ).split(',') if p.strip()
+        }
+        # GPU clients are read from nvidia-smi, which sees what is actually on
+        # the GPU (an encode/decode session shows the tool by name and its VRAM).
+        # Browsers and desktops hold small contexts of their own, so a client
+        # only counts as video work if it is a named tool or holds real VRAM.
+        self.llm_gpu_check_secs = float(os.environ.get('DOCLETS_LLM_GPU_CHECK', '2'))
+        self.llm_gpu_client_mib = int(os.environ.get('DOCLETS_LLM_GPU_CLIENT_MIB', '512'))
+        self.llm_own_gpu_procs = {'ollama', 'llama-server'}
+        self._gpu_checked = 0.0
+        self._gpu_busy_state = False
+        self._gpu_busy_reason = ''
+        self._gpu_detector_logged = False
+        self.llm_keep_alive_secs = self._duration_seconds(self.llm_keep_alive)
+        if self.llm_alive and 0 < self.llm_keep_alive_secs <= self.llm_beat_secs:
+            print(f"[LLM] DOCLETS_LLM_BEAT={self.llm_beat_secs:g}s is not below "
+                  f"DOCLETS_LLM_KEEP_ALIVE={self.llm_keep_alive}: the model would unload between beats")
+        # Warming-session state (see note_doclet_event and beat).
+        self._alive_session = False
+        self._last_event = 0.0
+        self._last_beat = 0.0
         self.embed_cache_dir = Path(os.environ.get('DOCLETS_EMBED_CACHE', str(Path.home() / '.doclet-embeddings')))
         # Access control (v2 ACL) and activity logging
         self.acl_path = os.environ.get('DOCLETS_ACL_PATH', '~/.doclet-save.acl')
@@ -690,6 +726,9 @@ class DocletManager():
             print(f"[LLM] warmup failed: {reply}")
         else:
             print(f"[LLM] warmup done in {time.time() - start:.1f}s")
+            # Starting a warming session leaves the freshly loaded model warm
+            # until the client goes quiet or other work claims the GPU (see beat).
+            self.note_doclet_event(opens_session=True)
 
     def llm_ready(self) -> Tuple[bool, str]:
         """Check Ollama is reachable and the configured models are pulled.
@@ -714,6 +753,221 @@ class DocletManager():
             return False, f"model(s) not pulled: {', '.join(missing)} (run: ollama pull {', '.join(missing)})"
         return True, f"{self.model} + {self.embed_model}"
 
+    ###########################################################################
+    # Keeping the model warm without hoarding the GPU
+
+    @staticmethod
+    def _duration_seconds(value: Any, default: float = 60.0) -> float:
+        """Parse an Ollama-style duration ('60s', '5m', '1h', '300') as seconds.
+
+        Ollama itself reads `keep_alive` these ways: 0 evicts immediately and a
+        negative value means 'never evict'. Callers treat a non-positive result
+        as 'hold nothing', which switches the warming machinery off.
+        """
+        text = str(value).strip().lower()
+        units = {'s': 1.0, 'm': 60.0, 'h': 3600.0, 'd': 86400.0}
+        try:
+            if text and text[-1] in units:
+                return float(text[:-1]) * units[text[-1]]
+            return float(text)
+        except (TypeError, ValueError):
+            return default
+
+    def note_doclet_event(self, opens_session: bool = False) -> None:
+        """Record doclet activity, which is what keeps the model warm.
+
+        Every request refreshes the residency window. A query — or the startup
+        warm-up — additionally opens a session: the period over which the model
+        is held loaded. Beats are fired by the server loop rather than from
+        here, so no request ever waits for a model load.
+        """
+        self._last_event = time.time()
+        if opens_session and not self._alive_session:
+            self._alive_session = True
+            self._last_beat = 0.0  # beat on the very next tick
+
+    def _video_activity(self) -> bool:
+        """True if a tool named in DOCLETS_LLM_VIDEO_PROCS is running.
+
+        The signal that works with or without nvidia-smi, and the one that catches
+        an editor holding an OpenGL preview (nvidia-smi's client list doesn't
+        report graphics contexts). Names come from /proc/<pid>/comm, which the
+        kernel truncates to 15 characters.
+        """
+        try:
+            pids = os.listdir('/proc')
+        except OSError:
+            return False
+        for pid in pids:
+            if not pid.isdigit():
+                continue
+            try:
+                with open(f'/proc/{pid}/comm') as handle:
+                    if handle.read().strip().lower() in self.llm_video_procs:
+                        return True
+            except OSError:
+                continue
+        return False
+
+    @staticmethod
+    def _parse_gpu_clients(text: str) -> List[Tuple[int, str, int]]:
+        """Parse `nvidia-smi --query-compute-apps=pid,process_name,used_memory`.
+
+        Returns (pid, lowercased process name, MiB) per client; rows whose
+        fields nvidia-smi can't supply ([N/A], [Not Supported]) yield 0 MiB
+        rather than an error. The process name is a full command line for many
+        apps, so callers match substrings, not whole names.
+        """
+        clients = []
+        for line in text.splitlines():
+            parts = [part.strip() for part in line.split(',')]
+            if len(parts) < 2 or not parts[0].isdigit():
+                continue
+            used = 0
+            if len(parts) > 2:
+                try:
+                    used = int(float(parts[2].split()[0]))
+                except (ValueError, IndexError):
+                    used = 0
+            clients.append((int(parts[0]), parts[1].lower(), used))
+        return clients
+
+    def _log_gpu_detector(self, working: bool, detail: Any = None) -> None:
+        """Say once which detector is in use, so the journal explains itself."""
+        if self._gpu_detector_logged:
+            return
+        self._gpu_detector_logged = True
+        if working:
+            print("[LLM] GPU detection: nvidia-smi")
+        else:
+            print(f"[LLM] GPU detection: nvidia-smi unavailable ({detail}); "
+                  f"falling back to process names")
+
+    def _run_nvidia_smi(self) -> Optional[str]:
+        """nvidia-smi's GPU client list, or None when it can't be queried."""
+        try:
+            result = subprocess.run(
+                ['nvidia-smi', '--query-compute-apps=pid,process_name,used_memory',
+                 '--format=csv,noheader,nounits'],
+                capture_output=True, text=True, timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError) as e:
+            self._log_gpu_detector(False, e)
+            return None
+        if result.returncode != 0:
+            lines = (result.stderr or result.stdout or '').strip().splitlines()
+            self._log_gpu_detector(False, lines[0] if lines else 'nvidia-smi failed')
+            return None
+        self._log_gpu_detector(True)
+        return result.stdout
+
+    @staticmethod
+    def _client_names(command_line: str) -> set:
+        """Names a GPU client might answer to: its executable and that path's parts.
+
+        nvidia-smi reports a whole command line for many apps (browsers pass
+        their flags along), so matching must not be a substring search over it:
+        those flags include base64 blobs, which would eventually spell a short
+        tool name like 'obs'. Flatpak-style paths still match by their last part.
+        """
+        tokens = command_line.split()
+        if not tokens:
+            return set()
+        return {part.lower() for part in tokens[0].split('/') if part}
+
+    def _gpu_busy(self) -> bool:
+        """True if video work is using the GPU, so the model should let go of it.
+
+        A listed tool *running* counts (this needs no nvidia-smi, and catches an
+        editor holding an OpenGL preview, which nvidia-smi's client list doesn't
+        report). nvidia-smi then refines that: it shows which tools are really on
+        the GPU — including ones whose binary name differs from the command that
+        started them — and how much VRAM each client holds, which catches heavy
+        work by tools that aren't in the list at all.
+
+        Probed at most once every DOCLETS_LLM_GPU_CHECK seconds; sets
+        _gpu_busy_reason for the log.
+        """
+        now = time.time()
+        if now - self._gpu_checked < self.llm_gpu_check_secs:
+            return self._gpu_busy_state
+        self._gpu_checked = now
+
+        busy = self._video_activity()
+        reason = 'video tool running' if busy else ''
+
+        clients = self._run_nvidia_smi()  # None when it can't be queried
+        if clients is not None:
+            for _, command, used in self._parse_gpu_clients(clients):
+                names = self._client_names(command)
+                if names & self.llm_own_gpu_procs:
+                    continue  # our own runner is a GPU client too, but not the competition
+                tool = sorted(self.llm_video_procs & names)
+                if tool:
+                    busy, reason = True, f'{tool[0]} is on the GPU'
+                    break
+                if self.llm_gpu_client_mib and used >= self.llm_gpu_client_mib:
+                    busy, reason = True, f'a GPU client is holding {used} MiB of VRAM'
+                    break
+
+        self._gpu_busy_state, self._gpu_busy_reason = busy, reason
+        return busy
+
+    def _ollama_residency(self, model: str, keep_alive: Any) -> bool:
+        """Set one model's residency without generating anything.
+
+        Ollama answers an empty-messages /api/chat with done_reason 'load': the
+        model loads if it isn't loaded (a few seconds) and otherwise the call
+        returns immediately, having only refreshed the keep-alive window. With
+        keep_alive 0 it answers 'unload' and frees the GPU.
+        """
+        if requests is None:
+            return False
+        try:
+            response = requests.post(
+                f"{self.ollama_url}/api/chat",
+                json={"model": model, "messages": [], "keep_alive": keep_alive},
+                timeout=self.llm_timeout,
+            )
+            response.raise_for_status()
+            response.json()
+            return True
+        except Exception as e:
+            print(f"[LLM] residency request failed for {model}: {e}")
+            return False
+
+    def release_gpu(self) -> None:
+        """Ask Ollama to evict the models now, freeing the GPU."""
+        for model in (self.model, self.embed_model):
+            self._ollama_residency(model, 0)
+
+    def beat(self) -> str:
+        """One server-loop tick: hold the model warm, or hand the GPU back.
+
+        Returns a short status (off / idle / hold / warm / yielded / expired /
+        error). Runs inside the server's message loop, so it never raises.
+        """
+        if not self.llm_alive or self.llm_keep_alive_secs <= 0:
+            return 'off'  # DOCLETS_LLM_KEEP_ALIVE=0 means "never hold"
+        if not self._alive_session:
+            return 'idle'
+        if self._gpu_busy():
+            self._alive_session = False
+            self.release_gpu()
+            print(f"[LLM] GPU wanted by other work ({self._gpu_busy_reason}): "
+                  f"released {self.model}")
+            return 'yielded'
+        if time.time() - self._last_event > self.llm_keep_alive_secs:
+            self._alive_session = False
+            self.release_gpu()
+            print(f"[LLM] no doclet activity for {self.llm_keep_alive_secs:g}s: GPU released")
+            return 'expired'
+        now = time.time()
+        if now - self._last_beat >= self.llm_beat_secs:
+            self._last_beat = now
+            return 'warm' if self._ollama_residency(self.model, self.llm_keep_alive) else 'error'
+        return 'hold'
+
     def query_llm(self, prompt: str, model: str = None) -> str: # type: ignore
         """Backwards-compatible wrapper around _ollama_chat for callers that
         use the old single-prompt API."""
@@ -726,7 +980,13 @@ class DocletManager():
         try:
             response = requests.post(
                 f"{self.ollama_url}/api/embed",
-                json={"model": self.embed_model, "input": texts},
+                json={
+                    "model": self.embed_model,
+                    "input": texts,
+                    # Same reasoning as _ollama_chat: embeddings otherwise use
+                    # Ollama's 5m default and hold the GPU longest of anything.
+                    "keep_alive": self.llm_keep_alive,
+                },
                 timeout=self.llm_timeout,
             )
             response.raise_for_status()
@@ -1199,6 +1459,13 @@ class Doclets(Handler):
             self.nextToken()
             self.add(command)
             return True
+        if mode == 'beat':
+            # Tick hook from the server loop: hold the model warm, or release
+            # the GPU when other work wants it. The plugin does its own logging.
+            self.nextToken()
+            command['mode'] = mode
+            self.add(command)
+            return True
         if mode in ('query', 'view', 'save', 'new', 'delete', 'topics'):
             self.nextToken()
             command['mode'] = mode
@@ -1224,6 +1491,15 @@ class Doclets(Handler):
                 raise RuntimeError(self.program, 'Doclets manager not initialized')
 
             mode = command['mode']
+            if mode == 'beat':
+                # Not an event: a beat must not refresh the activity window it
+                # is holding open, or the session would never end.
+                self.program.doclets_manager.beat()
+                return self.nextPC()
+
+            # Every request refreshes the warming window; a query opens a session.
+            self.program.doclets_manager.note_doclet_event(opens_session=(mode == 'query'))
+
             target = self.getObject(self.getVariable(command['target']))
             message = self.getObject(self.getVariable(command['message'])).getValue()
             results = ''
@@ -1377,7 +1653,10 @@ class Doclets(Handler):
         results = ''
         
         action = message.get('action', '')
-        
+
+        # Every request refreshes the warming window; a query opens a session.
+        self.program.doclets_manager.note_doclet_event(opens_session=(action == 'query'))
+
         # Normalize incoming fields to UTF-8 strings
         query = message.get('message', '')
 #        print(query)

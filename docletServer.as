@@ -62,6 +62,9 @@
 !! `on mqtt message` handler is registered is never delivered to the program.
 !!
 !! Each message is popped and dispatched by action; the doclets plugin does the heavy lifting.
+!!
+!! Every tick also beats: while the client is active that holds the LLM resident, and it
+!! hands the GPU back as soon as a video workload wants it.
 
     init ServerTopic
         name MyID
@@ -81,6 +84,7 @@
     while true
     begin
         wait 50 ticks
+        doclets beat
         if MessageQueue is not empty
         begin
             pop ReceivedMessage from MessageQueue
@@ -101,7 +105,7 @@
     stop
 
 ! Get a list of the available doclet topics
-!! @hash 2cc396e5
+!! @hash 67c413b6
 !!!
 
 !! Reply with the topics the requester may read (the plugin filters by the caller's token).

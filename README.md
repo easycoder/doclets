@@ -75,7 +75,12 @@ The doclet server reads its LLM configuration from environment variables:
 | `DOCLETS_EMBED_MODEL` | `nomic-embed-text` |
 | `DOCLETS_LLM_TOP_K` | `20` |
 | `DOCLETS_LLM_NUM_CTX` | `8192` |
-| `DOCLETS_LLM_KEEP_ALIVE` | `30m` |
+| `DOCLETS_LLM_KEEP_ALIVE` | `60s` — how long Ollama keeps a model resident after a request (both the chat and embedding models), and the window of doclet activity that counts as one session |
+| `DOCLETS_LLM_ALIVE` | `1` — set `0` to stop the server holding the model warm |
+| `DOCLETS_LLM_BEAT` | `30` — seconds between keeping-warm beats; keep it below `DOCLETS_LLM_KEEP_ALIVE` |
+| `DOCLETS_LLM_VIDEO_PROCS` | `kdenlive,melt,ffmpeg,ffplay,vlc,mpv,obs,shotcut,olive-editor,handbrake,handbrakecli,resolve,davinci-resolve,blender` — the video tools: one of these running, or holding a GPU client, hands the GPU back |
+| `DOCLETS_LLM_GPU_CHECK` | `2` — seconds between GPU probes; the answer is cached in between, since beats come round far more often than the GPU changes hands |
+| `DOCLETS_LLM_GPU_CLIENT_MIB` | `512` — a GPU client holding at least this much VRAM counts as video work even if its name isn't in the list (0 disables) |
 | `DOCLETS_LLM_TIMEOUT` | `120` |
 | `DOCLETS_LLM_TEMPERATURE` | `0.3` — lower = more deterministic ranking; raise for more variety |
 | `DOCLETS_EMBED_CACHE` | `~/.doclet-embeddings` |
@@ -92,6 +97,44 @@ Note: the first LLM query after a server restart can take up to a minute (model
 load + first-time embedding); the client allows ~2 minutes for AI queries
 (plain queries keep the ~10s wait). If first-query latency bothers you, set
 `DOCLETS_LLM_WARMUP=1` on the server.
+
+### Sharing the GPU with other work
+
+The model sits on the GPU, so the server works to load it once per doclet
+session and otherwise stay out of the way:
+
+- A **query** (or `DOCLETS_LLM_WARMUP=1` at startup) opens a *session*, i.e. it
+  loads the model and starts holding it warm.
+- While a session lasts, every server-loop tick beats: an empty-messages
+  `/api/chat` that costs nothing and just refreshes the keep-alive window
+  (`DOCLETS_LLM_BEAT` seconds apart). Any doclet request refreshes that window
+  too, so reading doclets between queries keeps the model warm — no reload.
+- The session ends after `DOCLETS_LLM_KEEP_ALIVE` of no doclet activity, or the
+  moment video work claims the GPU; either way the models are evicted there and
+  then, and the GPU is free. The next query starts a new session — and therefore
+  loads once more.
+
+Video work is spotted two ways. A tool named in `DOCLETS_LLM_VIDEO_PROCS` that
+is *running* counts — that is the coarser test, and it is what catches an editor
+holding an OpenGL preview, which nvidia-smi's client list doesn't report. Then
+nvidia-smi refines it with what is actually on the GPU: a client whose
+executable (or a path component of it, so Flatpak-style paths work) matches one
+of those names, or any client holding at least `DOCLETS_LLM_GPU_CLIENT_MIB` of
+VRAM, which catches heavy work by tools that aren't in the list at all. Matching
+is on the executable rather than the whole command line, because browsers pass
+their flags — base64 blobs included — where a short tool name like `obs` would
+eventually turn up by chance. Browsers and desktop shells hold small GPU
+contexts of their own (tens of MiB) and Ollama's own runner is ignored, so
+neither is mistaken for video work. The GPU is probed at most every
+`DOCLETS_LLM_GPU_CHECK` seconds, and only while a session is open.
+
+The journal says which detector is in use: `[LLM] GPU detection: nvidia-smi`, or
+a line explaining why it fell back to running tools (no NVIDIA GPU, no driver
+access, nvidia-smi not on PATH), in which case that coarser test is all there is.
+
+Because the window is a *dead-man's switch* (the beats stop when the server
+does), a crashed or stopped server also releases the GPU within
+`DOCLETS_LLM_KEEP_ALIVE`.
 
 ## Access control (topics)
 
