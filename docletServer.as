@@ -49,20 +49,25 @@
 
     log `Broker is ` cat Broker
     log `Username is ` cat Username
-    log `Password is ` cat Password
     log `MyID is ` cat MyID
 
     ! Set up MQTT
-!! @hash bc2ca66a
+!! @hash 9fed5acb
 !!!
 
 !! Connect to the broker, subscribe, and run the request/reply loop.
+!!
+!! The plugin is initialised before the subscription on purpose: `doclets init` blocks
+!! for tens of seconds when DOCLETS_LLM_WARMUP=1, and a request that arrives before the
+!! `on mqtt message` handler is registered is never delivered to the program.
 !!
 !! Each message is popped and dispatched by action; the doclets plugin does the heavy lifting.
 
     init ServerTopic
         name MyID
         qos 1
+
+    doclets init
 
     mqtt
         token Username Password
@@ -71,8 +76,6 @@
         port 8883
         subscribe ServerTopic
 
-    doclets init
-    
     on mqtt message append the mqtt message to MessageQueue
 
     while true
@@ -98,7 +101,7 @@
     stop
 
 ! Get a list of the available doclet topics
-!! @hash c388fe7a
+!! @hash 2cc396e5
 !!!
 
 !! Reply with the topics the requester may read (the plugin filters by the caller's token).
