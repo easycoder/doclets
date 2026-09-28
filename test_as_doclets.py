@@ -550,7 +550,7 @@ def test_llm_beat_disabled(fake):
 
 
 def test_plugin_wiring_records_events(mgr, fake):
-    """`doclets ...` is the .as-facing surface: check what it reports to the beat."""
+    """`doclets ...` is the .allspeak-facing surface: check what it reports to the beat."""
 
     class Stub:
         def __init__(self, value):

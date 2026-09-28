@@ -10,8 +10,8 @@
 #      (or run the repo's `doclets` installer, which also fetches the files)
 #   2. Put the server files in the WorkingDirectory below (adjust to taste):
 #        mkdir -p /opt/doclets
-#        cp docletServer.as as_doclets.py /opt/doclets/
-#      as_doclets.py MUST sit next to docletServer.as — the plugin is loaded
+#        cp docletServer.allspeak as_doclets.py /opt/doclets/
+#      as_doclets.py MUST sit next to docletServer.allspeak — the plugin is loaded
 #      from the working directory.
 #   3. Put the doclet content where the plugin expects it: the service user's
 #      ~/Doclets directory (year folders), e.g. /home/doclets/Doclets/.
@@ -39,7 +39,7 @@ Wants=network-online.target
 Type=simple
 User=graham
 WorkingDirectory=/home/graham/dev/doclets
-ExecStart=/home/graham/.local/bin/allspeak docletServer.as
+ExecStart=/home/graham/.local/bin/allspeak docletServer.allspeak
 Restart=on-failure
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

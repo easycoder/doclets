@@ -3,10 +3,14 @@ set -euo pipefail
 
 # deploy.sh — deploy the AllSpeak doclets client to doclets.eclecity.net.
 #
-# The new client needs exactly three files served by the web server:
-#   index.html    – the page + loader (loads the AllSpeak CDN bundle)
-#   doclets.as    – the client script (fetched by the loader)
-#   doclets.json  – Webson screen layout
+# The new client needs these files served by the web server:
+#   index.html            – the page + loader (loads the AllSpeak CDN bundle)
+#   doclets.allspeak      – the client script (fetched by the loader)
+#   doclets.json          – Webson screen layout
+#   manifest.json         – web app manifest (installable PWA)
+#   sw.js                 – service worker: caches the app shell
+#   icon-*.png            – PWA icons, referenced by manifest.json
+#   apple-touch-icon.png  – iOS home-screen icon
 #
 # It only copies/pushes; it never deletes.
 #
@@ -32,7 +36,7 @@ cd "$SCRIPT_DIR"
 INFRA=0
 case "${1:-}" in
   -h|--help|help)
-    sed -n '2,45p' "$0"
+    sed -n '/^# deploy.sh/,/^$/p' "$0"
     exit 0
     ;;
   --infra)
@@ -62,7 +66,11 @@ if [[ -z "$TARGET" ]]; then
   fi
 fi
 
-CLIENT_FILES=(index.html doclets.as doclets.json)
+CLIENT_FILES=(
+  index.html doclets.allspeak doclets.json
+  manifest.json sw.js
+  icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png
+)
 INFRA_FILES=(credentials.php .htaccess mqtt_token.php favicon.ico)
 
 FILES=("${CLIENT_FILES[@]}")
@@ -109,4 +117,7 @@ Reminders:
   the web root); the live copy is already correct — nothing to do.
 - Browsers may cache index.html for up to 10 minutes; hard-refresh
   (Ctrl+Shift+R) to test immediately.
+- sw.js is network-first, so a redeployed shell is picked up on the next load;
+  the service worker itself updates on the visit after that. Hard-refresh, or
+  clear the site data, to see a change at once.
 EOF

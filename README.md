@@ -6,22 +6,51 @@ EasyCoder). Client/server communication uses MQTT.
 
 ## Files
 
-- `doclets.as` — the browser UI (AllSpeak JS dialect, Webson for DOM rendering; runs on smartphones)
-- `docletServer.as` — the server (AllSpeak Python dialect)
-- `as_doclets.py` — Python plugin with the doclet search/manage logic (loaded by `docletServer.as`)
+- `doclets.allspeak` — the browser UI (AllSpeak JS dialect, Webson for DOM rendering; runs on smartphones)
+- `docletServer.allspeak` — the server (AllSpeak Python dialect)
+- `as_doclets.py` — Python plugin with the doclet search/manage logic (loaded by `docletServer.allspeak`)
 - `doclets.json` — Webson screen layout
 - `index.html` — entry point; loads `allspeak-min.js` from `https://allspeak.ai/dist/`
+- `manifest.json`, `sw.js`, `icon-*.png`, `apple-touch-icon.png` — the PWA bits (see below)
+- `doclets.png` — the icon artwork; `make-icons.py` turns it into the PWA icons
 - `allspeak-js/`, `allspeak-py/` — vendored AllSpeak runtimes for local development
   (`relink-allspeak.sh` replaces the JS files with symlinks to your AllSpeak checkout)
 - `credentials.php` — serves the MQTT credentials JSON; `credentials-local.example` /
   `doclets.eclecity.net.txt.example` — credential schemas (the real credential
   files are gitignored; see `.gitignore`)
-- `docletServer.py` — cron helper that restarts `docletServer.as` daily
+- `docletServer.py` — cron helper that restarts `docletServer.allspeak` daily
 - `doclets` — installer script for the server (installs the `allspeak-ai` pip package)
+
+## Progressive web app
+
+Doclets installs as an app from the browser (Chrome/Edge/Android "Install",
+iOS Safari "Add to Home Screen"):
+
+- `manifest.json` — name, `start_url`/`scope` of `.`, `display: standalone`
+  and the icon set. It is deliberately named `.json` rather than
+  `.webmanifest`: the host serves `.json` as `application/json`, which every
+  browser accepts for a manifest, whereas `.webmanifest` would need an
+  `AddType` in `.htaccess` to avoid being served as `application/octet-stream`.
+- `sw.js` — service worker. Network-first for the app shell (`index.html`,
+  `doclets.allspeak`, `doclets.json`, the icons) and for the two CDN libraries
+  `index.html` loads, falling back to the cache when offline. Requests for
+  `doclets.allspeak?v=…` / `doclets.json?v=…` are cached without their query
+  string, so the loader's cache buster can't fill the cache with copies.
+  `credentials.php` is never intercepted or cached.
+- `icon-*.png`, `apple-touch-icon.png` — generated from `doclets.png`:
+
+      python3 make-icons.py [source]     # default source: doclets.png
+      node pwa-check.js                  # static consistency check
+      node sw-test.js                    # behavioural test of sw.js (no browser)
+
+The service worker caches the *shell* only. Doclet content arrives over MQTT,
+so the app still needs the network to show anything: installing it buys a
+home-screen entry, standalone chrome and a fast (and offline-tolerant) start,
+not an offline reader.
 
 ## Running locally
 
-- **Server:** `allspeak docletServer.as`
+- **Server:** `allspeak docletServer.allspeak`
 - **Client:** `python3 -m http.server 8080` → `http://localhost:8080`
 
 On localhost the client prompts for the four MQTT credential values
@@ -30,8 +59,9 @@ On localhost the client prompts for the four MQTT credential values
 
 ## Deploying
 
-`./deploy.sh` deploys the three files the client needs (`index.html`,
-`doclets.as`, `doclets.json`); add `--infra` to also copy `credentials.php`,
+`./deploy.sh` deploys the files the client needs — `index.html`,
+`doclets.allspeak`, `doclets.json`, `manifest.json`, `sw.js`, the PWA icons and
+`apple-touch-icon.png`; add `--infra` to also copy `credentials.php`,
 `.htaccess`, `mqtt_token.php`, `favicon.ico`. It only copies — leftover `.ecs`
 files on the site should be removed by hand once the new client is confirmed
 working.
@@ -161,22 +191,22 @@ reader tooling yet).
 
 ## Editor support (doc blocks)
 
-Every section of `doclets.as` / `docletServer.as` is wrapped in an AllSpeak doc
-block (`!!` prose, `!! @hash`, `!!!`) so the code can be reviewed block by
-block in the AllSpeak editor (`edit.html` — vendored, along with `asedit.as`,
-`asedit.json`, `allspeak.js` and `plugins/`).
+Every section of `doclets.allspeak` / `docletServer.allspeak` is wrapped in an
+AllSpeak doc block (`!!` prose, `!! @hash`, `!!!`) so the code can be reviewed
+block by block in the AllSpeak editor (`edit.html` — vendored, along with
+`asedit.allspeak`, `asedit.json`, `allspeak.js` and `plugins/`).
 
-After editing a `.as` file, refresh the section hashes and validate:
+After editing a `.allspeak` file, refresh the section hashes and validate:
 
-    python3 asdoc-check.py --write doclets.as docletServer.as
-    python3 asdoc-check.py doclets.as docletServer.as   # expect 0 errors/warnings
+    python3 asdoc-check.py --write doclets.allspeak docletServer.allspeak
+    python3 asdoc-check.py doclets.allspeak docletServer.allspeak   # expect 0 errors/warnings
 
 To open the editor (block mode), run the AllSpeak dev server from this
 directory — it provides the `/list`, `/read` and `/write` routes the editor
 needs to open and save files — then browse to `/edit.html`:
 
-    allspeak server.as
+    allspeak server.allspeak
 
-(`server.as` is the dev file server for the editor; `docletServer.as` is the
-separate MQTT doclet server the deployed client talks to — don't confuse the
-two.)
+(`server.allspeak` is the dev file server for the editor; `docletServer.allspeak`
+is the separate MQTT doclet server the deployed client talks to — don't confuse
+the two.)

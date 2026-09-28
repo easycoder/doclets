@@ -2,9 +2,9 @@
 
 cd $HOME/bin
 /usr/bin/pip install -U allspeak-ai
-/usr/bin/rm doclets as_doclets.py doclets.as
+/usr/bin/rm doclets as_doclets.py doclets.allspeak
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/as_doclets.py
-/usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets.as
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/doclets/refs/heads/main/doclets.allspeak
 /usr/bin/chmod a+x doclets
-$HOME/.local/bin/allspeak doclets.as
+$HOME/.local/bin/allspeak doclets.allspeak

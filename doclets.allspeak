@@ -108,7 +108,7 @@
 !!
 !! The `on mqtt connect`, `on mqtt message` and `every 20 ticks` handlers drive the rest of the program; the save-button enable/disable poll lives here too.
 
-    put `Doclets-` cat random 999999 into MyID
+    put `doclets/reply/` cat random 999999 into MyID
     log `MyID = ` cat MyID
     
     variable Credentials
@@ -149,7 +149,11 @@
     end
     else
     begin
-        rest get Credentials from `https://doclets.eclecity.net/credentials.php`
+!       No caching: a browser that keeps a previous response also keeps the previous account, and
+!       once that account is rotated it looks exactly like a credentials fault. The query string
+!       is there so a page which already cached the old response fetches past it.
+        no cache
+        rest get Credentials from `https://doclets.eclecity.net/credentials.php?v=` cat now
             or go to AbandonShip
         put element `broker` of Credentials into Broker
         put element `username` of Credentials into Username
@@ -214,7 +218,7 @@
     end
     stop
 
-!! @hash 694fde33
+!! @hash 95ddfe12
 !!!
 
 !! On first connection: set up the main window, load any stored auth token, and ask the server for the list of topics the caller may read.

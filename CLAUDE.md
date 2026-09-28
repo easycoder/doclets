@@ -1,7 +1,7 @@
 ## Skills
-- `/ecs-js` — EasyCoder JS dialect context (use when working on `doclets.as`)
-- `/ecs-python` — EasyCoder Python dialect context (use when working on `docletServer.as`)
-- `/ecs-review` — syntax-check any `.as` file
+- `/ecs-js` — EasyCoder JS dialect context (use when working on `doclets.allspeak`)
+- `/ecs-python` — EasyCoder Python dialect context (use when working on `docletServer.allspeak`)
+- `/ecs-review` — syntax-check any `.allspeak` file
 - `/doclets-mqtt` — MQTT credentials and localhost setup
 
 ## Project overview
@@ -9,11 +9,11 @@
 Central file storage and reader for Markdown documents, running on AllSpeak
 (a multilingual fork of EasyCoder). Client/server communication uses MQTT.
 
-- **Server:** `docletServer.as` (AllSpeak Python dialect, plugin `as_doclets.py`)
-- **Client:** `doclets.as` (AllSpeak JS dialect, Webson for DOM rendering, runs on smartphones). Entry point: `index.html`.
+- **Server:** `docletServer.allspeak` (AllSpeak Python dialect, plugin `as_doclets.py`)
+- **Client:** `doclets.allspeak` (AllSpeak JS dialect, Webson for DOM rendering, runs on smartphones). Entry point: `index.html`.
 
 ## Running locally
-- **Server:** `allspeak docletServer.as`
+- **Server:** `allspeak docletServer.allspeak`
 - **Client:** `python3 -m http.server 8080` → `http://localhost:8080`
 
 Tasks will be provided as the need arises.

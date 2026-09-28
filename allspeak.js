@@ -54,6 +54,27 @@ const _AllSpeak_sha256 = (() => {
 	};
 })();
 
+// Shared by the `is uppercase` / `is lowercase` conditions. A value passes only
+// if it holds at least one cased letter and every cased letter is in that case —
+// Python's str.isupper()/islower(). So `ABC-123` is uppercase, while `Hello`,
+// `123` and an empty value are neither. Folding to the *other* case is the
+// presence test: an unchanged fold means the value holds no letter of the case
+// being asked about, which settles it without a second rule. Only text can be
+// cased, so booleans and empty values never pass — Python's c_uppercase/
+// c_lowercase apply the same rule by testing for a str first.
+const _AllSpeak_isCased = (value, upper) => {
+	if (typeof value !== `string` && typeof value !== `number`) {
+		return false;
+	}
+	const text = `${value}`;
+	const other = upper ? text.toLowerCase() : text.toUpperCase();
+	if (text === other) {
+		return false;
+	}
+	const wanted = upper ? text.toUpperCase() : text.toLowerCase();
+	return text === wanted;
+};
+
 const AllSpeak_Core = {
 
 	name: `AllSpeak_Core`,
@@ -264,6 +285,141 @@ const AllSpeak_Core = {
 				program.runtimeError(command.lino, `JSON: Unable to parse value`);
 				return false;
 			}
+		}
+	},
+
+	// viz start [on <label>] [once|every] [until thread] [limit N]   |   viz stop [on <label>]
+	//
+	// A marker, not a command: it says *where* to watch and compiles to something the
+	// runtime does nothing with. It lives in core rather than in the analysis plugin
+	// deliberately — a marker that only compiles when a tool is loaded would make an
+	// instrumented script unrunnable as an ordinary script, which is a trap for whoever
+	// leaves one in by accident. Core owns the syntax; the plugin owns the watching.
+	Viz: {
+
+		compile: compiler => {
+			const lino = compiler.getLino();
+			compiler.next();
+			const request = AllSpeak_Language.reverseWord(compiler.getToken());
+			if (request !== `start` && request !== `stop`) {
+				throw new Error(AllSpeak_Language.diagnostic(`syntaxError`, {
+					line: lino,
+					detail: `viz: expected "start" or "stop"`
+				}));
+			}
+			const command = {
+				domain: `core`,
+				keyword: `viz`,
+				lino,
+				request,
+				mode: `once`
+			};
+			compiler.next();
+			// The options are read loosely on purpose: `on` names a label the same way
+			// `gosub` does, so a forward reference works, and a name that resolves to
+			// nothing is the analysis's to report rather than a compile error here. They
+			// stop at the end of the marker's own line, without which a statement on the
+			// next line beginning with one of the option words — `on click Sorted` is a
+			// common shape — would be swallowed as part of the marker.
+			// `lino` was taken before the marker word was consumed, so it is the marker's
+			// own line: taken any later, the lookahead would already be reading the next
+			// line and the options would happily run into it.
+			while (compiler.getLino() === lino) {
+				const option = AllSpeak_Language.reverseWord(compiler.getToken());
+				if (option === `on`) {
+					compiler.next();
+					const point = compiler.getToken();
+					command.point = point && point.endsWith(`:`) ? point.slice(0, -1) : point;
+					compiler.next();
+				} else if (option === `once` || option === `every`) {
+					command.mode = option;
+					compiler.next();
+				} else if (option === `until`) {
+					compiler.next();
+					if (AllSpeak_Language.reverseWord(compiler.getToken()) !== `thread`) {
+						throw new Error(AllSpeak_Language.diagnostic(`syntaxError`, {
+							line: lino,
+							detail: `viz: "until" is followed by "thread"`
+						}));
+					}
+					// Exactly "thread": `end` is a block keyword, so being forgiving
+					// about the longer form would swallow a loop's own `end`.
+					compiler.next();
+					command.until = `thread`;
+				} else if (option === `limit`) {
+					compiler.next();
+					const size = parseInt(compiler.getToken(), 10);
+					if (Number.isNaN(size)) {
+						throw new Error(AllSpeak_Language.diagnostic(`syntaxError`, {
+							line: lino,
+							detail: `viz: "limit" needs a number`
+						}));
+					}
+					compiler.next();
+					command.limit = size;
+				} else {
+					break;
+				}
+			}
+			compiler.addCommand(command);
+			return true;
+		},
+
+		// The whole point of keeping the marker in core: running it does nothing at all.
+		// The recorder, when one is attached, watches the commands go by and does the work.
+		run: program => program.pc + 1
+	},
+
+	// model the script [in <path>] [as <source>] giving <variable>
+	//
+	// A fallback, and the reason it belongs in core rather than being left to the viz
+	// plugin: the editor names this keyword, so without the plugin the editor would not
+	// compile at all — a tool that cannot run because another tool is missing. Core
+	// therefore answers with an *empty* model when the plugin is absent, and defers to the
+	// plugin when it is loaded. The `viz` markers strike the same bargain for the same
+	// reason, so an instrumented script runs with or without the analysis tool.
+	Model: {
+
+		compile: compiler => {
+			if (AllSpeak.domain && AllSpeak.domain.viz) {
+				return false;      // the plugin owns the grammar: rewind, let it compile
+			}
+			const lino = compiler.getLino();
+			compiler.next();
+			if (compiler.isWord(`the`)) compiler.next();
+			if (compiler.isWord(`script`)) compiler.next();
+			if (compiler.isWord(`in`)) {
+				compiler.next();
+				compiler.getValue();
+			}
+			if (compiler.isWord(`as`)) {
+				compiler.next();
+				compiler.getValue();
+			}
+			if (!compiler.isWord(`giving`)) {
+				throw new Error(`viz 'model' (line ${lino + 1}): expected ` +
+					`'model the script [in <path>] [as <source>] giving <variable>'`);
+			}
+			compiler.next();
+			const target = compiler.getToken();
+			compiler.next();
+			compiler.addCommand({
+				domain: `core`,
+				keyword: `model`,
+				lino,
+				target,
+				empty: true
+			});
+			return true;
+		},
+
+		// An empty model: callers walk no records and behave as if nothing were flagged.
+		run: program => {
+			const command = program[program.pc];
+			const record = program.getSymbolRecord(command.target);
+			record.elements = 0;
+			record.index = 0;
+			return program.pc + 1;
 		}
 	},
 
@@ -755,6 +911,11 @@ const AllSpeak_Core = {
 		},
 
 		run: program => {
+			// In test mode a normal exit triggers the summary. This must run
+			// before program.exit() destroys the program's state.
+			if (program.testMode && !program.parent) {
+				AllSpeak.printTestSummary(program);
+			}
 			let parent = AllSpeak.scripts[program.parent];
 			let unblocked = program.unblocked;
 			program.exit();
@@ -2671,16 +2832,256 @@ const AllSpeak_Core = {
 		}
 	},
 
-	Test: {
+	Check: {
 
 		compile: compiler => {
+			const lino = compiler.getLino();
 			compiler.next();
+			// Optional 'that' joiner — both 'check that X is 3' and
+			// 'check X is 3' read naturally and parse identically.
+			if (compiler.isWord(`that`)) {
+				compiler.next();
+			}
+			// Reuse the exact condition grammar as 'if' — no new condition
+			// syntax. Capture the source text of the condition for the report.
+			const condStart = compiler.getIndex();
+			const condition = compiler.getCondition();
+			const conditionText = compiler.tokens.slice(condStart, compiler.getIndex())
+				.map(t => t.token).join(` `);
+			const pc = compiler.getPc();
+			compiler.addCommand({
+				domain: `core`,
+				keyword: `check`,
+				lino,
+				condition,
+				conditionText,
+				onError: 0
+			});
+			// Optional failure clause: 'or <action>' records the failure, runs
+			// the action, then ends the current test block; 'on failure <action>'
+			// records the failure, runs the action, and continues in place.
+			let clause = 0;
+			if (compiler.isWord(`or`)) {
+				compiler.next();
+				clause = 1;
+			} else if (compiler.isWord(`on`)) {
+				const mark = compiler.getIndex();
+				compiler.next();
+				if (compiler.isWord(`failure`)) {
+					compiler.next();
+					clause = 2;
+				} else {
+					compiler.rewindTo(mark);
+				}
+			}
+			if (clause) {
+				compiler.getCommandAt(pc).onError = compiler.getPc() + 1;
+				// Skip the recovery action on success
+				const skipPC = compiler.getPc();
+				compiler.addCommand({
+					domain: `core`,
+					keyword: `goto`,
+					lino,
+					goto: 0
+				});
+				compiler.compileOne();
+				if (clause === 1) {
+					// 'or' — end the current test block after the action.
+					compiler.addCommand({
+						domain: `core`,
+						keyword: `gotoTestEnd`,
+						lino
+					});
+				}
+				compiler.getCommandAt(skipPC).goto = compiler.getPc();
+			}
 			return true;
 		},
 
 		run: program => {
-			AllSpeak.writeToDebugConsole(`Test`);
-			return program[program.pc].pc + 1;
+			const command = program[program.pc];
+			const test = program.condition.test(program, command.condition);
+			const current = program.currentTest || program.testSuite.default;
+			current.checks++;
+			if (test) {
+				current.passed++;
+				return command.pc + 1;
+			}
+			current.failed++;
+			if (!current.firstFailure) {
+				current.firstFailure = {
+					condition: command.conditionText,
+					lino: command.lino
+				};
+			}
+			// A failed check is a report, not a crash — log it and continue.
+			const now = new Date();
+			const hh = String(now.getHours()).padStart(2, `0`);
+			const mm = String(now.getMinutes()).padStart(2, `0`);
+			const ss = String(now.getSeconds()).padStart(2, `0`);
+			const ms = String(now.getMilliseconds()).padStart(3, `0`);
+			AllSpeak.writeToDebugConsole(`${hh}:${mm}:${ss}.${ms}:${program.script}:${command.lino}->` +
+				`FAIL: ${command.conditionText} (${program.script}:${command.lino})`);
+			if (command.onError) {
+				program.errorMessage = `Check failed: ${command.conditionText}`;
+				program.run(command.onError);
+				return 0;
+			}
+			return command.pc + 1;
+		}
+	},
+
+	Test: {
+
+		compile: compiler => {
+			if (compiler.inTestBlock) {
+				throw new Error(`'test' blocks cannot be nested`);
+			}
+			const lino = compiler.getLino();
+			compiler.next();
+			const name = compiler.getValue();
+			const testPC = compiler.getPc();
+			compiler.addCommand({
+				domain: `core`,
+				keyword: `test`,
+				lino,
+				name,
+				next: 0,
+				errorPC: 0
+			});
+			compiler.inTestBlock = true;
+			// Compile the body up to 'end'. Nested begin/end blocks consume
+			// their own terminator, so only this block's 'end' stops the loop.
+			compiler.compileFromHere([AllSpeak_Language.word(`end`)]);
+			// Expect the two-word terminator 'end test'.
+			if (!compiler.isWord(`test`)) {
+				throw new Error(`Expected 'end test' to close the test block`);
+			}
+			compiler.next();
+			// Normal flow falls out of the body into endTest (which finalizes
+			// the case and jumps past the error handler). Unhandled runtime
+			// errors are routed to testError in test mode: the case is marked
+			// errored and the runner skips to the next block instead of
+			// aborting the whole run.
+			const endPC = compiler.getPc();
+			compiler.addCommand({
+				domain: `core`,
+				keyword: `endTest`,
+				lino,
+				next: 0
+			});
+			const errPC = compiler.getPc();
+			compiler.addCommand({
+				domain: `core`,
+				keyword: `testError`,
+				lino,
+				next: 0
+			});
+			const after = compiler.getPc();
+			compiler.getCommandAt(testPC).next = after;
+			compiler.getCommandAt(testPC).errorPC = errPC;
+			compiler.getCommandAt(testPC).endTestPC = endPC;
+			compiler.getCommandAt(endPC).next = after;
+			compiler.getCommandAt(errPC).next = after;
+			compiler.inTestBlock = false;
+			return true;
+		},
+
+		run: program => {
+			const command = program[program.pc];
+			// Save current onError and set up the block error handler (test
+			// mode only — outside test mode errors abort as usual).
+			if (!program.onErrorStack) {
+				program.onErrorStack = [];
+			}
+			program.onErrorStack.push(program.onError);
+			if (program.testMode) {
+				program.onError = command.errorPC;
+			}
+			program.currentTest = {
+				name: program.getFormattedValue(command.name),
+				checks: 0,
+				passed: 0,
+				failed: 0,
+				errored: false,
+				errorMsg: null,
+				firstFailure: null,
+				next: command.next,
+				endTestPC: command.endTestPC
+			};
+			return command.pc + 1;
+		}
+	},
+
+	EndTest: {
+
+		compile: compiler => {
+			// Compiled inline by Test, not a standalone keyword
+			return true;
+		},
+
+		run: program => {
+			const command = program[program.pc];
+			// Restore onError from the stack
+			if (program.onErrorStack && program.onErrorStack.length > 0) {
+				program.onError = program.onErrorStack.pop();
+			} else {
+				program.onError = 0;
+			}
+			// Finalize the current test case, then jump past the error handler
+			const current = program.currentTest;
+			if (current) {
+				program.testSuite.tests.push(current);
+				program.currentTest = null;
+			}
+			return command.next;
+		}
+	},
+
+	TestError: {
+
+		compile: compiler => {
+			// Compiled inline by Test, not a standalone keyword
+			return true;
+		},
+
+		run: program => {
+			const command = program[program.pc];
+			// An unhandled runtime error was routed here — mark the case
+			// errored, restore onError and skip to the next test block.
+			const current = program.currentTest;
+			if (current) {
+				current.errored = true;
+				current.errorMsg = program.errorMessage || `Test aborted by an error`;
+				program.testSuite.tests.push(current);
+				program.currentTest = null;
+			}
+			if (program.onErrorStack && program.onErrorStack.length > 0) {
+				program.onError = program.onErrorStack.pop();
+			} else {
+				program.onError = 0;
+			}
+			return command.next;
+		}
+	},
+
+	GotoTestEnd: {
+
+		compile: compiler => {
+			// Compiled inline by Check, not a standalone keyword
+			return true;
+		},
+
+		run: program => {
+			// An 'or' clause fired on a check: end the current test block now
+			// by running its endTest command, so the case is finalized and
+			// onError restored. Outside any test block the implicit default
+			// case ends the script.
+			const current = program.currentTest;
+			if (current) {
+				return current.endTestPC;
+			}
+			return 0;
 		}
 	},
 
@@ -2932,6 +3333,9 @@ const AllSpeak_Core = {
 		// Add compile-only handlers not represented by runtime opcodes.
 		// These compile to other commands or set compiler flags.
 		handlers[lang.word(`begin`)] = this.Begin;
+		// Compile-only because there is no opcode for it: the viz plugin's own keyword,
+		// answered here only so that naming it cannot fail when the plugin is absent.
+		handlers[lang.word(`model`)] = this.Model;
 		handlers[lang.word(`end`)] = this.End;
 		handlers[lang.word(`script`)] = this.Script;
 		handlers[lang.word(`log`)] = this.Log;           // compiles to PRINT with log flag
@@ -2939,11 +3343,20 @@ const AllSpeak_Core = {
 		handlers[lang.word(`release`)] = this.Release;   // compiles to SET_READY
 		handlers[lang.word(`continue`)] = this.Continue; // sets compiler flag
 		handlers[lang.word(`no`)] = this.No;             // no cache directive
+		handlers[lang.word(`check`)] = this.Check;
 		handlers[lang.word(`test`)] = this.Test;
+		handlers['endTest'] = this.EndTest;              // internal — compiled by Test
+		handlers['testError'] = this.TestError;          // internal — block error handler
+		handlers['gotoTestEnd'] = this.GotoTestEnd;      // internal — compiled by Check
 		handlers[lang.word(`goto`)] = this.Go;           // alias for go
 		handlers[lang.word(`subtract`)] = this.Take;     // alias for take
 		handlers[lang.word(`endTry`)] = this.EndTry;     // internal
-		handlers[lang.word(`param`)] = this.Param;
+		// Register every accepted spelling of the parameter keyword (e.g.
+		// param|parameter), not just the primary form — wordForms() reads
+		// the `|`-separated list from the active language pack.
+		for (const w of AllSpeak_Language.wordForms(`param`)) {
+			handlers[w] = this.Param;
+		}
 		this._compileHandlers = handlers;
 	},
 
@@ -3028,6 +3441,11 @@ const AllSpeak_Core = {
 			NO_CACHE: this.No,
 			PARAM: this.Param,
 			TEST: this.Test,
+			CHECK: this.Check,
+			END_TEST: this.EndTest,
+			TEST_ERROR: this.TestError,
+			GOTO_TEST_END: this.GotoTestEnd,
+			VIZ: this.Viz,
 			BEGIN: this.Begin,
 			END: this.End,
 			SCRIPT: this.Script
@@ -3077,17 +3495,11 @@ const AllSpeak_Core = {
 					};
 				case `variable`:
 					const nextTok = compiler.nextToken();
-					let type = AllSpeak_Language.reverseWord(nextTok);
-					if (AllSpeak_Language.matchesWord(nextTok, `modulo`)) {
-						type = `modulo`;
-					} else if (AllSpeak_Language.matchesWord(nextTok, `format`)) {
-						type = `format`;
-					}
-					if ([`format`, `modulo`].includes(type)) {
+					if (AllSpeak_Language.matchesWord(nextTok, `format`)) {
 						const value = compiler.getNextValue();
 						return {
 							domain: `core`,
-							type,
+							type: `format`,
 							name,
 							value
 						};
@@ -3217,7 +3629,7 @@ const AllSpeak_Core = {
 				};
 			}
 			const canonicalToken2 = AllSpeak_Language.reverseWord(token);
-			if ([`encode`, `decode`, `lowercase`, `hash`, `reverse`, `trim`].includes(canonicalToken2)) {
+			if ([`encode`, `decode`, `lowercase`, `uppercase`, `hash`, `reverse`, `trim`].includes(canonicalToken2)) {
 				compiler.next();
 				const value = compiler.getValue();
 				return {
@@ -3313,6 +3725,31 @@ const AllSpeak_Core = {
 						};
 					}
 				}
+			}
+			// The `param N` value expression: reads the Nth argument of the
+			// current `gosub ... with` frame. Accepted under every spelling
+			// the active language pack maps to canonical 'param' (e.g.
+			// param|parameter). N is a single numeric token (like the command
+			// form), so a following `cat` chain is not swallowed into the
+			// index: `param 1 cat X` reads arg 1 then concatenates X.
+			// Placed after the symbol check so a declared variable named
+			// 'param' still shadows the keyword.
+			if (AllSpeak_Language.reverseWord(token) === `param`) {
+				compiler.next();
+				const index = parseInt(compiler.getToken());
+				if (!isNaN(index)) {
+					compiler.next();
+					return {
+						domain: `core`,
+						type: `param`,
+						index: {
+							type: `constant`,
+							numeric: true,
+							content: index
+						}
+					};
+				}
+				return null;
 			}
 			if ([`character`, `char`].includes(token)) {
 				let index = compiler.getNextValue();
@@ -3663,14 +4100,6 @@ const AllSpeak_Core = {
 					numeric: false,
 					content: program.getSymbolRecord(value.callback).payload
 				};
-			case `modulo`:
-				const symbolRecord = program.getSymbolRecord(value.name);
-				const modval = program.evaluate(value.value);
-				return {
-					type: `constant`,
-					numeric: true,
-					content: symbolRecord.value[symbolRecord.index].content % modval.content
-				};
 			case `format`:
 				const fmtRecord = program.getSymbolRecord(value.name);
 				const fmtValue = program.getValue(fmtRecord.value[fmtRecord.index]);
@@ -3804,6 +4233,12 @@ const AllSpeak_Core = {
 					numeric: false,
 					content: program.getValue(value.value).toLowerCase()
 				};
+			case `uppercase`:
+				return {
+					type: `constant`,
+					numeric: false,
+					content: program.getValue(value.value).toUpperCase()
+				};
 			case `hash`:
 				return {
 					type: `constant`,
@@ -3922,6 +4357,36 @@ const AllSpeak_Core = {
 					numeric: true,
 					content: searchIn.indexOf(value1)
 				};
+			case `param`: {
+				// Read the Nth argument of the current `gosub ... with` frame.
+				// Mirrors Param.run: a missing frame or an out-of-range index
+				// yields numeric 0, matching the command form's behaviour.
+				// Note: getValue() returns the raw content, not a value object.
+				const paramFrame = program.callArgs && program.callArgs.length > 0
+					? program.callArgs[program.callArgs.length - 1]
+					: null;
+				const paramIndex = program.getValue(value.index);
+				let paramContent = 0;
+				let paramNumeric = true;
+				if (paramFrame && paramIndex !== null && paramIndex !== undefined && paramIndex < paramFrame.length) {
+					const val = paramFrame[paramIndex];
+					if (typeof val === `number`) {
+						paramContent = val;
+						paramNumeric = true;
+					} else if (typeof val === `string`) {
+						paramContent = val;
+						paramNumeric = false;
+					} else {
+						paramContent = val !== null && val !== undefined ? val.content : 0;
+						paramNumeric = val ? val.numeric : true;
+					}
+				}
+				return {
+					type: `constant`,
+					numeric: paramNumeric,
+					content: paramContent
+				};
+			}
 			case `arg`:
 				const name = program.getValue(value.value);
 				const target = program.getSymbolRecord(value.target);
@@ -4173,6 +4638,33 @@ const AllSpeak_Core = {
 							type: `odd`,
 							value1
 						};
+					case `uppercase`:
+					case `lowercase`:
+						compiler.next();
+						return {
+							domain: `core`,
+							type: test,
+							value1,
+							negate
+						};
+					case `upper`:
+					case `lower`:
+						// English spells the test either way round: `is uppercase`
+						// and `is upper case` mean the same thing, so a bare
+						// `upper`/`lower` has to be followed by `case`. These two
+						// tokens are not pack words, so only an English script can
+						// reach this branch.
+						compiler.next();
+						if (!compiler.isWord(`case`)) {
+							return null;
+						}
+						compiler.next();
+						return {
+							domain: `core`,
+							type: test === `upper` ? `uppercase` : `lowercase`,
+							value1,
+							negate
+						};
 					case `greater`:
 						if (compiler.nextIsWord(`than`)) {
 							compiler.next();
@@ -4274,10 +4766,17 @@ const AllSpeak_Core = {
 				return null;
 			}
 			while (compiler.isWord(`or`)) {
+				const mark = compiler.getIndex();
 				compiler.next();
 				const right = AllSpeak_Core.condition.parseAndExpression(compiler);
 				if (!right) {
 					compiler.warning(`Expected condition after 'or'`);
+					// Not a compound condition after all — put the 'or' back so
+					// the caller can treat it as a clause introducer (e.g.
+					// 'check ... or <action>'). Without the rewind the token
+					// stream would be left past the 'or' and the clause would be
+					// invisible.
+					compiler.rewindTo(mark);
 					return left;
 				}
 				left = {
@@ -4316,6 +4815,12 @@ const AllSpeak_Core = {
 				return (program.getValue(condition.value1) % 2) === 0;
 			case `odd`:
 				return (program.getValue(condition.value1) % 2) === 1;
+			case `uppercase`:
+			case `lowercase`:
+				const cased = _AllSpeak_isCased(
+					program.getValue(condition.value1),
+					condition.type === `uppercase`);
+				return condition.negate ? !cased : cased;
 			case `is`:
 				comparison = program.compare(program, condition.value1, condition.value2);
 				return condition.negate ? comparison !== 0 : comparison === 0;
@@ -5853,7 +6358,9 @@ const AllSpeak_Browser = {
 							if (program.length > 0) {
 								const eventTarget = event.target;
 								const boundTarget = event.currentTarget || target;
-								if (eventTarget && eventTarget.type != `radio` && typeof eventTarget.blur === `function`) {
+								if (eventTarget && eventTarget.type != `radio` &&
+									eventTarget.tagName !== `TEXTAREA` && eventTarget.tagName !== `INPUT` &&
+									typeof eventTarget.blur === `function`) {
 									eventTarget.blur();
 								}
 								if (typeof boundTarget.targetRecord !== `undefined`) {
@@ -6391,11 +6898,32 @@ const AllSpeak_Browser = {
 				});
 				return true;
 			}
+			if (compiler.isWord(`into`)) {
+				if (compiler.nextIsWord(`view`)) {
+					compiler.next();
+					compiler.addCommand({
+						domain: `browser`,
+						keyword: `scroll`,
+						lino,
+						name,
+						type: `intoView`
+					});
+					return true;
+				}
+			}
 			return false;
 		},
 
 		run: (program) => {
 			const command = program[program.pc];
+			if (command.type === `intoView`) {
+				// Bring a named element into view inside its scrollable ancestor
+				// (e.g. reveal the current block's row in the Blocks TOC).
+				const symbolRecord = program.getSymbolRecord(command.name);
+				const element = symbolRecord.element[symbolRecord.index];
+				element.scrollIntoView({ block: `nearest`, behavior: `smooth` });
+				return command.pc + 1;
+			}
 			const to = program.getValue(command.to);
 			if (command.name) {
 				const symbolRecord = program.getSymbolRecord(command.name);
@@ -6790,6 +7318,30 @@ const AllSpeak_Browser = {
 							return true;
 						}
 					}
+				} else if (token === AllSpeak_Language.word(`selection`)) {
+					if (compiler.nextIsWord(`of`)) {
+						if (compiler.nextIsSymbol()) {
+							const symbol = compiler.getSymbolRecord();
+							if (symbol.keyword === `textarea` || symbol.keyword === `input`) {
+								if (compiler.nextIsWord(`from`)) {
+									const start = compiler.getNextValue();
+									if (compiler.isWord(`to`)) {
+										const end = compiler.getNextValue();
+										compiler.addCommand({
+											domain: `browser`,
+											keyword: `set`,
+											lino,
+											type: `setSelection`,
+											symbolName: symbol.name,
+											start,
+											end
+										});
+										return true;
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 			compiler.addWarning(`Unrecognised syntax in 'set'`);
@@ -6846,11 +7398,30 @@ const AllSpeak_Browser = {
 					break;
 				}
 				break;
+			case `setSelection`:
+				targetRecord = program.getSymbolRecord(command.symbolName);
+				target = targetRecord.element[targetRecord.index];
+				value = program.getValue(command.start);
+				const selectionEnd = program.getValue(command.end);
+				target.focus();
+				target.setSelectionRange(value, selectionEnd);
+				// Browsers usually reveal a programmatic selection in a focused
+				// textarea, but not always — nudge the internal scroll so the
+				// caret line is visible. The line estimate is exact for unwrapped
+				// lines; long wrapped lines may land a few rows short.
+				if (target.scrollHeight > target.clientHeight) {
+					const lineHeight = parseFloat(window.getComputedStyle(target).lineHeight) || 16;
+					const caretLine = target.value.substr(0, value).split(`\n`).length;
+					const caretTop = (caretLine - 1) * lineHeight;
+					if (caretTop < target.scrollTop || caretTop > target.scrollTop + target.clientHeight) {
+						target.scrollTop = Math.max(0, caretTop - 10);
+					}
+				}
+				break;
 			case `setSelect`:
 				// The source is assumed to be an array
 				sourceRecord = program.getSymbolRecord(command.source);
-				const sourceData = program.getValue(sourceRecord.value[sourceRecord.index]);
-				var itemArray = ``;
+				const sourceData = program.getValue(sourceRecord.value[sourceRecord.index]);				var itemArray = ``;
 				try {
 					itemArray = JSON.parse(sourceData);
 				} catch (err) {
@@ -7515,11 +8086,11 @@ const AllSpeak_Browser = {
 				break;
 			case `selected`:
 				let arg = AllSpeak_Language.reverseWord(compiler.nextToken());
-				if ([`index`, `item`].includes(arg)) {
+				if ([`index`, `item`, `text`].includes(arg)) {
 					if ([`in`, `of`].includes(AllSpeak_Language.reverseWord(compiler.nextToken()))) {
 						if (compiler.nextIsSymbol()) {
 							const symbol = compiler.getSymbolRecord();
-							if ([`ul`, `ol`, `select`].includes(symbol.keyword)) {
+							if ([`ul`, `ol`, `select`, `textarea`, `input`].includes(symbol.keyword)) {
 								compiler.next();
 								return {
 									domain: `browser`,
@@ -7529,6 +8100,15 @@ const AllSpeak_Browser = {
 								};
 							}
 						}
+					} else if (arg === `text`) {
+						// Bare `the selected text` (no element): the active
+						// element's selection, falling back to the document selection.
+						return {
+							domain: `browser`,
+							type: `selected`,
+							symbol: null,
+							arg: `text`
+						};
 					}
 				}
 				break;
@@ -7883,8 +8463,32 @@ const AllSpeak_Browser = {
 					content
 				};
 			case `selected`:
+				if (!value.symbol) {
+					// Bare `the selected text`: the active editable's selection,
+					// falling back to the document selection.
+					const activeEl = document.activeElement;
+					if (activeEl && (activeEl.tagName === `TEXTAREA` || activeEl.tagName === `INPUT`)) {
+						content = activeEl.value.substring(activeEl.selectionStart, activeEl.selectionEnd);
+					} else {
+						content = window.getSelection ? window.getSelection().toString() : ``;
+					}
+					return {
+						type: `constant`,
+						numeric: false,
+						content
+					};
+				}
 				symbolRecord = program.getSymbolRecord(value.symbol);
 				target = symbolRecord.element[symbolRecord.index];
+				// textarea/input: return the highlighted substring
+				if (value.arg === `text` && (target.tagName === `TEXTAREA` || target.tagName === `INPUT`)) {
+					content = target.value.substring(target.selectionStart, target.selectionEnd);
+					return {
+						type: `constant`,
+						numeric: false,
+						content
+					};
+				}
 				let selectedIndex = target.selectedIndex;
 				let selectedText = selectedIndex  >= 0 ? target.options[selectedIndex].text : ``;
 				content = (value.arg === `index`) ? selectedIndex : selectedText;
@@ -11041,6 +11645,11 @@ const AllSpeak_Condition = {
 		for (const domainName of Object.keys(compiler.domain)) {
 			// console.log(`Try domain '${domainName}' for condition`);
 			const domain = compiler.domain[domainName];
+			// A domain need not implement condition handling at all — see
+			// spec/allspeak-plugin-contract.md: missing handlers are allowed.
+			if (!domain.condition) {
+				continue;
+			}
 			const code = domain.condition.compile(compiler);
 			if (code) {
 				return code;
@@ -11128,6 +11737,11 @@ const AllSpeak_Value = {
 		const mark = compiler.getIndex();
 		for (const name of Object.keys(compiler.domain)) {
 			const handler = compiler.domain[name];
+			// A domain need not implement value handling at all — see
+			// spec/allspeak-plugin-contract.md: missing handlers are allowed.
+			if (!handler.value) {
+				continue;
+			}
 			const code = handler.value.compile(compiler);
 			if (code) {
 				return code;
@@ -11159,6 +11773,36 @@ const AllSpeak_Value = {
 				value.parts.push(item);
 			}
 			return value;
+		}
+
+		// Binary modulo: <value> modulo <value> (left operand may be any value)
+		if (compiler.isWord(`modulo`)) {
+			compiler.next();
+			const divisor = AllSpeak_Value.getItem(compiler);
+			if (!divisor) {
+				throw new Error(`Undefined value: '${token}'`);
+			}
+			return {
+				type: `modulo`,
+				numeric: true,
+				left: item,
+				right: divisor
+			};
+		}
+
+		// Binary scale: <decimal string> scale <positive integer>
+		if (compiler.isWord(`scale`)) {
+			compiler.next();
+			const scaleFactor = AllSpeak_Value.getItem(compiler);
+			if (!scaleFactor) {
+				throw new Error(`Undefined value: '${token}'`);
+			}
+			return {
+				type: `scale`,
+				numeric: true,
+				left: item,
+				right: scaleFactor
+			};
 		}
 
 		return item;
@@ -11211,6 +11855,24 @@ const AllSpeak_Value = {
 					return acc + (value ? value.content : ``);
 				}, ``)
 			};
+		case `modulo`:
+			const moduloLeft = AllSpeak_Value.doValue(program, value.left);
+			const moduloRight = AllSpeak_Value.doValue(program, value.right);
+			return {
+				type: `constant`,
+				numeric: true,
+				content: moduloLeft ? moduloLeft.content % moduloRight.content : 0
+			};
+		case `scale`:
+			const scaleLeft = AllSpeak_Value.doValue(program, value.left);
+			const scaleRight = AllSpeak_Value.doValue(program, value.right);
+			return {
+				type: `constant`,
+				numeric: true,
+				content: AllSpeak_Value.scale(program,
+					scaleLeft ? scaleLeft.content : ``,
+					scaleRight ? scaleRight.content : 0)
+			};
 		case `boolean`:
 		case `constant`:
 			return value;
@@ -11245,6 +11907,44 @@ const AllSpeak_Value = {
 			numeric,
 			content
 		};
+	},
+
+	scale: (program, text, scaleFactor) => {
+		// Convert a decimal string to a scaled integer. Done with integer
+		// arithmetic (split sign/integer/fraction, round half away from zero)
+		// because `12.345 * 100` is 1234.4999... in floating point and would
+		// break the rounding rule. Strict: a malformed decimal or a non-positive
+		// integer scale raises a runtime error.
+		let str = String(text).trim();
+		if (!/^[+-]?(\d+(\.\d*)?|\.\d+)$/.test(str)) {
+			program.runtimeError(program[program.pc].lino,
+				`'scale' expects a decimal string, got '${str}'`);
+			return 0;
+		}
+		let sign = 1;
+		if (str.charAt(0) === `-`) {
+			sign = -1;
+			str = str.substr(1);
+		} else if (str.charAt(0) === `+`) {
+			str = str.substr(1);
+		}
+		const scaleNum = typeof scaleFactor === `number` ? scaleFactor : Number(scaleFactor);
+		if (!Number.isInteger(scaleNum) || scaleNum <= 0) {
+			program.runtimeError(program[program.pc].lino,
+				`'scale' needs a positive integer scale factor, got '${scaleFactor}'`);
+			return 0;
+		}
+		const dot = str.indexOf(`.`);
+		let intPart = dot < 0 ? str : str.substr(0, dot);
+		const fracPart = dot < 0 ? `` : str.substr(dot + 1);
+		if (intPart === ``) intPart = `0`;
+		let scaled = parseInt(intPart, 10) * scaleNum;
+		if (fracPart !== ``) {
+			const den = Math.pow(10, fracPart.length);
+			const numerator = parseInt(fracPart, 10) * scaleNum + den / 2;
+			scaled += Math.floor(numerator / den);
+		}
+		return sign * scaled;
 	},
 
 	evaluate: (program, value) => {
@@ -11413,6 +12113,14 @@ const AllSpeak_Run = {
 					break;
 				}
 				program.pc = handler.run(program);
+				// An error was routed to an onError handler (queued by
+				// runtimeError) — stop this statement sequence now so the
+				// handler runs before any further statements of the failing
+				// block (e.g. skip the rest of a test block).
+				if (program.errorRouted) {
+					program.errorRouted = false;
+					break;
+				}
 				if (!program.pc) {
 					break;
 				}
@@ -11588,6 +12296,9 @@ const AllSpeak_Opcodes = {
 
 		switch (keyword) {
 
+		// Instrumentation markers: core syntax, no runtime effect of their own.
+		case `viz`:      return `VIZ`;
+
 		// Arithmetic
 		case `add`:       return `ADD`;
 		case `take`:      return `SUBTRACT`;
@@ -11695,6 +12406,10 @@ const AllSpeak_Opcodes = {
 		// Structural / compile-time
 		case `no`:        return `NO_CACHE`;
 		case `test`:      return `TEST`;
+		case `check`:     return `CHECK`;
+		case `endTest`:   return `END_TEST`;
+		case `testError`: return `TEST_ERROR`;
+		case `gotoTestEnd`: return `GOTO_TEST_END`;
 		case `script`:    return `SCRIPT`;
 		case `begin`:     return `BEGIN`;
 		case `end`:       return `END`;
@@ -12630,9 +13345,10 @@ var AllSpeak_LanguagePack_en = {
       ]
     },
     "PARAM": {
-      "keyword": "param",
+      "keyword": "param|parameter",
       "patterns": [
-        "param {number} into {variable}"
+        "param {number} into {variable}",
+        "parameter {number} into {variable}"
       ]
     },
     "POP": {
@@ -12984,6 +13700,12 @@ var AllSpeak_LanguagePack_en = {
         "wait {value} minute|minutes|second|seconds|tick|ticks"
       ]
     },
+    "VIZ": {
+      "keyword": "viz",
+      "patterns": [
+        "viz start|stop [on {label}] [once|every] [until thread] [limit {count}]"
+      ]
+    },
     "WHILE": {
       "keyword": "while",
       "patterns": [
@@ -13044,7 +13766,9 @@ var AllSpeak_LanguagePack_en = {
     "empty": "empty",
     "numeric": "numeric",
     "even": "even",
-    "odd": "odd"
+    "odd": "odd",
+    "uppercase": "uppercase",
+    "lowercase": "lowercase"
   },
   "diagnostics": {
     "unknownCommand": "I don't understand '{token}' at line {line}.",
@@ -13064,6 +13788,7 @@ var AllSpeak_LanguagePack_en = {
     "body": "body",
     "by": "by",
     "cache": "cache",
+    "check": "check",
     "confirm": "confirm",
     "delimited": "delimited",
     "document": "document",
@@ -13143,6 +13868,7 @@ var AllSpeak_LanguagePack_en = {
     "encode": "encode",
     "decode": "decode",
     "lowercase": "lowercase",
+    "uppercase": "uppercase",
     "hash": "hash",
     "reverse": "reverse",
     "trim": "trim",
@@ -13160,6 +13886,7 @@ var AllSpeak_LanguagePack_en = {
     "second": "second",
     "millisecond": "millisecond",
     "modulo": "modulo",
+    "scale": "scale",
     "time": "time",
     "radius": "radius",
     "cat": "cat",
@@ -13207,6 +13934,7 @@ var AllSpeak_LanguagePack_en = {
     "browser": "browser",
     "content": "content",
     "text": "text",
+    "test": "test",
     "selected": "selected",
     "color": "color",
     "style": "style",
@@ -13216,6 +13944,7 @@ var AllSpeak_LanguagePack_en = {
     "width": "width",
     "height": "height",
     "scroll": "scroll",
+    "cursor": "cursor",
     "parent": "parent",
     "history": "history",
     "pick": "pick",
@@ -13316,7 +14045,7 @@ var AllSpeak_LanguagePack_en = {
     "negate": "negate",
     "increment": "increment",
     "decrement": "decrement",
-    "param": "param",
+    "param": "param|parameter",
     "play": "play",
     "pop": "pop",
     "print": "print",
@@ -13415,6 +14144,10 @@ var AllSpeak_LanguagePack_en = {
     "type": "type",
     "zoom": "zoom",
     "via": "via",
+    "limit": "limit",
+    "once": "once",
+    "thread": "thread",
+    "until": "until",
     "memory": "memory"
   }
 };
@@ -13737,7 +14470,9 @@ const AllSpeak_Compiler = {
 			this.rewindTo(mark);
 		}
 		AllSpeak.writeToDebugConsole(`No handler found`);
-		const lino = this.getLino() + 1;
+		// getLino() is already 1-based (tokeniser stores lino + 1), so adding 1
+		// here reported the line after the offending token.
+		const lino = this.getLino();
 		if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(token) && !(token in this.symbols)) {
 			throw new Error(AllSpeak_Language.diagnostic(`unknownCommand`, {token, line: lino}));
 		}
@@ -13833,6 +14568,7 @@ const AllSpeak_Compiler = {
 	compile: function(tokens) {
 		this.tokens = tokens;
 		this.index = 0;
+		this.inTestBlock = false;
 		this.program = [];
 		this.program.script = 0;
 		this.program.symbols = {};
@@ -13890,6 +14626,49 @@ const AllSpeak = {
 	attachWaitMs: 3000,
 	timingEnabled: false,
 	startupTraceCache: null,
+
+	// Test mode: when true, 'test' blocks isolate runtime errors per case and a
+	// summary is printed at exit. Set by the host (e.g. AllSpeak.testMode = true)
+	// before AllSpeak.start(). The 'check' vocabulary works in either mode.
+	testMode: false,
+
+	printTestSummary: function (program) {
+		const suite = program.testSuite;
+		if (!suite) {
+			return;
+		}
+		const lines = [];
+		lines.push(`Test suite: ${program.script}`);
+		for (const t of suite.tests) {
+			if (t.errored) {
+				lines.push(`  ✗ ${t.name} (error: ${t.errorMsg})`);
+			} else if (t.failed > 0) {
+				lines.push(`  ✗ ${t.name} (FAIL: ${t.firstFailure.condition} — line ${t.firstFailure.lino})`);
+			} else {
+				lines.push(`  ✓ ${t.name} (${t.checks} checks)`);
+			}
+		}
+		let totalChecks = suite.default.checks;
+		let totalPassed = suite.default.passed;
+		let totalFailed = suite.default.failed;
+		let failedTests = 0;
+		for (const t of suite.tests) {
+			totalChecks += t.checks;
+			totalPassed += t.passed;
+			totalFailed += t.failed;
+			if (t.failed > 0 || t.errored) {
+				failedTests++;
+			}
+		}
+		const passedTests = suite.tests.length - failedTests;
+		lines.push(``);
+		lines.push(`${suite.tests.length} tests, ${passedTests} passed, ${failedTests} failed — ` +
+			`${totalChecks} checks, ${totalPassed} passed, ${totalFailed} failed`);
+		for (const line of lines) {
+			AllSpeak.writeToDebugConsole(line);
+		}
+		program.testExitCode = (failedTests > 0 || totalFailed > 0) ? 1 : 0;
+	},
 
 	isStartupTraceEnabled: function () {
 		if (this.startupTraceCache !== null) {
@@ -13977,9 +14756,16 @@ const AllSpeak = {
 
 	runtimeError: function (lino, message) {
 		this.lino = lino;
-		if (this.program && this.program.onError) {
-			this.program.errorMessage = message;
-			this.program.run(this.program.onError);
+		// Handlers call this as program.runtimeError (this = program); it can
+		// also be called as AllSpeak.runtimeError (this = AllSpeak, with
+		// this.program pointing at the running program). Resolve the program
+		// either way so a registered onError handler (e.g. a test block's
+		// error handler) actually receives the error.
+		const prog = this.program || this;
+		if (prog && prog.onError) {
+			prog.errorMessage = message;
+			prog.errorRouted = true;
+			prog.run(prog.onError);
 			return;
 		}
 		this.reportError({
@@ -14272,6 +15058,20 @@ const AllSpeak = {
 		program.queue = [0];
 		program.module = module;
 		program.parent = parent;
+		program.testMode = this.testMode;
+		program.testSuite = {
+			name: null,
+			tests: [],
+			default: {
+				checks: 0,
+				passed: 0,
+				failed: 0,
+				errored: false,
+				errorMsg: null,
+				firstFailure: null
+			}
+		};
+		program.currentTest = null;
 		if (module) {
 			module.program = program.script;
 		}
@@ -14424,7 +15224,7 @@ const AllSpeak = {
 		}
 	},
 };
-AllSpeak.version = `2605101119`;
+AllSpeak.version = `2608191442`;
 AllSpeak.timestamp = Date.now();
 AllSpeak.writeStartupTrace(`AllSpeak loaded; waiting for page`);
 

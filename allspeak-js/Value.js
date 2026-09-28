@@ -70,6 +70,11 @@ const AllSpeak_Value = {
 		const mark = compiler.getIndex();
 		for (const name of Object.keys(compiler.domain)) {
 			const handler = compiler.domain[name];
+			// A domain need not implement value handling at all — see
+			// spec/allspeak-plugin-contract.md: missing handlers are allowed.
+			if (!handler.value) {
+				continue;
+			}
 			const code = handler.value.compile(compiler);
 			if (code) {
 				return code;
@@ -101,6 +106,36 @@ const AllSpeak_Value = {
 				value.parts.push(item);
 			}
 			return value;
+		}
+
+		// Binary modulo: <value> modulo <value> (left operand may be any value)
+		if (compiler.isWord(`modulo`)) {
+			compiler.next();
+			const divisor = AllSpeak_Value.getItem(compiler);
+			if (!divisor) {
+				throw new Error(`Undefined value: '${token}'`);
+			}
+			return {
+				type: `modulo`,
+				numeric: true,
+				left: item,
+				right: divisor
+			};
+		}
+
+		// Binary scale: <decimal string> scale <positive integer>
+		if (compiler.isWord(`scale`)) {
+			compiler.next();
+			const scaleFactor = AllSpeak_Value.getItem(compiler);
+			if (!scaleFactor) {
+				throw new Error(`Undefined value: '${token}'`);
+			}
+			return {
+				type: `scale`,
+				numeric: true,
+				left: item,
+				right: scaleFactor
+			};
 		}
 
 		return item;
@@ -153,6 +188,24 @@ const AllSpeak_Value = {
 					return acc + (value ? value.content : ``);
 				}, ``)
 			};
+		case `modulo`:
+			const moduloLeft = AllSpeak_Value.doValue(program, value.left);
+			const moduloRight = AllSpeak_Value.doValue(program, value.right);
+			return {
+				type: `constant`,
+				numeric: true,
+				content: moduloLeft ? moduloLeft.content % moduloRight.content : 0
+			};
+		case `scale`:
+			const scaleLeft = AllSpeak_Value.doValue(program, value.left);
+			const scaleRight = AllSpeak_Value.doValue(program, value.right);
+			return {
+				type: `constant`,
+				numeric: true,
+				content: AllSpeak_Value.scale(program,
+					scaleLeft ? scaleLeft.content : ``,
+					scaleRight ? scaleRight.content : 0)
+			};
 		case `boolean`:
 		case `constant`:
 			return value;
@@ -187,6 +240,44 @@ const AllSpeak_Value = {
 			numeric,
 			content
 		};
+	},
+
+	scale: (program, text, scaleFactor) => {
+		// Convert a decimal string to a scaled integer. Done with integer
+		// arithmetic (split sign/integer/fraction, round half away from zero)
+		// because `12.345 * 100` is 1234.4999... in floating point and would
+		// break the rounding rule. Strict: a malformed decimal or a non-positive
+		// integer scale raises a runtime error.
+		let str = String(text).trim();
+		if (!/^[+-]?(\d+(\.\d*)?|\.\d+)$/.test(str)) {
+			program.runtimeError(program[program.pc].lino,
+				`'scale' expects a decimal string, got '${str}'`);
+			return 0;
+		}
+		let sign = 1;
+		if (str.charAt(0) === `-`) {
+			sign = -1;
+			str = str.substr(1);
+		} else if (str.charAt(0) === `+`) {
+			str = str.substr(1);
+		}
+		const scaleNum = typeof scaleFactor === `number` ? scaleFactor : Number(scaleFactor);
+		if (!Number.isInteger(scaleNum) || scaleNum <= 0) {
+			program.runtimeError(program[program.pc].lino,
+				`'scale' needs a positive integer scale factor, got '${scaleFactor}'`);
+			return 0;
+		}
+		const dot = str.indexOf(`.`);
+		let intPart = dot < 0 ? str : str.substr(0, dot);
+		const fracPart = dot < 0 ? `` : str.substr(dot + 1);
+		if (intPart === ``) intPart = `0`;
+		let scaled = parseInt(intPart, 10) * scaleNum;
+		if (fracPart !== ``) {
+			const den = Math.pow(10, fracPart.length);
+			const numerator = parseInt(fracPart, 10) * scaleNum + den / 2;
+			scaled += Math.floor(numerator / den);
+		}
+		return sign * scaled;
 	},
 
 	evaluate: (program, value) => {

@@ -1,11 +1,14 @@
 # AllSpeak + Webson Guide (for AI)
 
-AllSpeak is a multilingual fork of EasyCoder: `.as` scripts, `allspeak` CLI,
+AllSpeak is a multilingual fork of EasyCoder: `.allspeak` scripts, `allspeak` CLI,
 `as_`-prefixed Python modules. English remains a supported language, so the
 script vocabulary is unchanged from EasyCoder.
 
+(EasyCoder's original `.ecs` source extension became `.as` in AllSpeak, and is
+now `.allspeak` — see the AllSpeak `AGENTS.md`. Legacy `.as` files still run.)
+
 ## AllSpeak style in this repo
-- Treat `.as` as the source of high-level behavior
+- Treat `.allspeak` as the source of high-level behavior
 - Make surgical changes; preserve command vocabulary and flow
 - Prefer existing labels/subroutines over introducing new structures
 
@@ -18,7 +21,7 @@ script vocabulary is unchanged from EasyCoder.
 ## Webson usage here
 - `doclets.json` defines screen layout and element IDs
 - AllSpeak attaches by those IDs
-- Renaming IDs requires matching changes in `.as`
+- Renaming IDs requires matching changes in `.allspeak`
 - Renaming only Webson object keys is safe if IDs stay stable
 
 ## Markdown rendering

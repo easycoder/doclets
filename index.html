@@ -4,6 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Doclets Web Reader (Dev)</title>
+  <meta name="description" content="Searchable reader for the central Markdown doclet repository." />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Doclets" />
   <!-- Uncomment the following for development -->
 <!--    <script type='text/javascript' src='allspeak-js/config.js'></script>
     <script type='text/javascript' src='allspeak-js/Core.js'></script>
@@ -58,6 +67,18 @@
   <!-- Uncomment the the next line for deployment -->
   <script type='text/javascript' src='https://allspeak.ai/dist/allspeak-min.js'></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    // Register the service worker that makes the app installable and caches
+    // the shell (see sw.js). Deferred to `load` so it never competes with
+    // the AllSpeak runtime for the first paint.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function (err) {
+          console.warn('Service worker registration failed:', err);
+        });
+      });
+    }
+  </script>
 </head>
 <body>
   <pre id="allspeak-script" style="display:none">
@@ -66,7 +87,7 @@
         script Loader
 
         variable Script
-        rest get Script from `doclets.as?v=` cat now
+        rest get Script from `doclets.allspeak?v=` cat now
         run Script
   </pre>
 </body>

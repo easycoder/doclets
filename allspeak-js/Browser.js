@@ -1475,7 +1475,9 @@ const AllSpeak_Browser = {
 							if (program.length > 0) {
 								const eventTarget = event.target;
 								const boundTarget = event.currentTarget || target;
-								if (eventTarget && eventTarget.type != `radio` && typeof eventTarget.blur === `function`) {
+								if (eventTarget && eventTarget.type != `radio` &&
+									eventTarget.tagName !== `TEXTAREA` && eventTarget.tagName !== `INPUT` &&
+									typeof eventTarget.blur === `function`) {
 									eventTarget.blur();
 								}
 								if (typeof boundTarget.targetRecord !== `undefined`) {
@@ -2013,11 +2015,32 @@ const AllSpeak_Browser = {
 				});
 				return true;
 			}
+			if (compiler.isWord(`into`)) {
+				if (compiler.nextIsWord(`view`)) {
+					compiler.next();
+					compiler.addCommand({
+						domain: `browser`,
+						keyword: `scroll`,
+						lino,
+						name,
+						type: `intoView`
+					});
+					return true;
+				}
+			}
 			return false;
 		},
 
 		run: (program) => {
 			const command = program[program.pc];
+			if (command.type === `intoView`) {
+				// Bring a named element into view inside its scrollable ancestor
+				// (e.g. reveal the current block's row in the Blocks TOC).
+				const symbolRecord = program.getSymbolRecord(command.name);
+				const element = symbolRecord.element[symbolRecord.index];
+				element.scrollIntoView({ block: `nearest`, behavior: `smooth` });
+				return command.pc + 1;
+			}
 			const to = program.getValue(command.to);
 			if (command.name) {
 				const symbolRecord = program.getSymbolRecord(command.name);
@@ -2412,6 +2435,30 @@ const AllSpeak_Browser = {
 							return true;
 						}
 					}
+				} else if (token === AllSpeak_Language.word(`selection`)) {
+					if (compiler.nextIsWord(`of`)) {
+						if (compiler.nextIsSymbol()) {
+							const symbol = compiler.getSymbolRecord();
+							if (symbol.keyword === `textarea` || symbol.keyword === `input`) {
+								if (compiler.nextIsWord(`from`)) {
+									const start = compiler.getNextValue();
+									if (compiler.isWord(`to`)) {
+										const end = compiler.getNextValue();
+										compiler.addCommand({
+											domain: `browser`,
+											keyword: `set`,
+											lino,
+											type: `setSelection`,
+											symbolName: symbol.name,
+											start,
+											end
+										});
+										return true;
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 			compiler.addWarning(`Unrecognised syntax in 'set'`);
@@ -2468,11 +2515,30 @@ const AllSpeak_Browser = {
 					break;
 				}
 				break;
+			case `setSelection`:
+				targetRecord = program.getSymbolRecord(command.symbolName);
+				target = targetRecord.element[targetRecord.index];
+				value = program.getValue(command.start);
+				const selectionEnd = program.getValue(command.end);
+				target.focus();
+				target.setSelectionRange(value, selectionEnd);
+				// Browsers usually reveal a programmatic selection in a focused
+				// textarea, but not always — nudge the internal scroll so the
+				// caret line is visible. The line estimate is exact for unwrapped
+				// lines; long wrapped lines may land a few rows short.
+				if (target.scrollHeight > target.clientHeight) {
+					const lineHeight = parseFloat(window.getComputedStyle(target).lineHeight) || 16;
+					const caretLine = target.value.substr(0, value).split(`\n`).length;
+					const caretTop = (caretLine - 1) * lineHeight;
+					if (caretTop < target.scrollTop || caretTop > target.scrollTop + target.clientHeight) {
+						target.scrollTop = Math.max(0, caretTop - 10);
+					}
+				}
+				break;
 			case `setSelect`:
 				// The source is assumed to be an array
 				sourceRecord = program.getSymbolRecord(command.source);
-				const sourceData = program.getValue(sourceRecord.value[sourceRecord.index]);
-				var itemArray = ``;
+				const sourceData = program.getValue(sourceRecord.value[sourceRecord.index]);				var itemArray = ``;
 				try {
 					itemArray = JSON.parse(sourceData);
 				} catch (err) {
@@ -3137,11 +3203,11 @@ const AllSpeak_Browser = {
 				break;
 			case `selected`:
 				let arg = AllSpeak_Language.reverseWord(compiler.nextToken());
-				if ([`index`, `item`].includes(arg)) {
+				if ([`index`, `item`, `text`].includes(arg)) {
 					if ([`in`, `of`].includes(AllSpeak_Language.reverseWord(compiler.nextToken()))) {
 						if (compiler.nextIsSymbol()) {
 							const symbol = compiler.getSymbolRecord();
-							if ([`ul`, `ol`, `select`].includes(symbol.keyword)) {
+							if ([`ul`, `ol`, `select`, `textarea`, `input`].includes(symbol.keyword)) {
 								compiler.next();
 								return {
 									domain: `browser`,
@@ -3151,6 +3217,15 @@ const AllSpeak_Browser = {
 								};
 							}
 						}
+					} else if (arg === `text`) {
+						// Bare `the selected text` (no element): the active
+						// element's selection, falling back to the document selection.
+						return {
+							domain: `browser`,
+							type: `selected`,
+							symbol: null,
+							arg: `text`
+						};
 					}
 				}
 				break;
@@ -3505,8 +3580,32 @@ const AllSpeak_Browser = {
 					content
 				};
 			case `selected`:
+				if (!value.symbol) {
+					// Bare `the selected text`: the active editable's selection,
+					// falling back to the document selection.
+					const activeEl = document.activeElement;
+					if (activeEl && (activeEl.tagName === `TEXTAREA` || activeEl.tagName === `INPUT`)) {
+						content = activeEl.value.substring(activeEl.selectionStart, activeEl.selectionEnd);
+					} else {
+						content = window.getSelection ? window.getSelection().toString() : ``;
+					}
+					return {
+						type: `constant`,
+						numeric: false,
+						content
+					};
+				}
 				symbolRecord = program.getSymbolRecord(value.symbol);
 				target = symbolRecord.element[symbolRecord.index];
+				// textarea/input: return the highlighted substring
+				if (value.arg === `text` && (target.tagName === `TEXTAREA` || target.tagName === `INPUT`)) {
+					content = target.value.substring(target.selectionStart, target.selectionEnd);
+					return {
+						type: `constant`,
+						numeric: false,
+						content
+					};
+				}
 				let selectedIndex = target.selectedIndex;
 				let selectedText = selectedIndex  >= 0 ? target.options[selectedIndex].text : ``;
 				content = (value.arg === `index`) ? selectedIndex : selectedText;

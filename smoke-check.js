@@ -1,11 +1,11 @@
 'use strict';
-// Headless smoke-test of doclets.as under the AllSpeak JS runtime.
+// Headless smoke-test of doclets.allspeak under the AllSpeak JS runtime.
 // DEV-ONLY diagnostic tool — not part of the deployed app. The prompt mock
 // below reads the localhost dev values from the gitignored credentials-local
 // file (falling back to placeholders on a fresh clone — MQTT is stubbed, so
 // the real values are never sent anywhere).
 // Loads the vendored allspeak-js sources in bundle order into a browser shim,
-// then runs doclets.as for real: localhost credentials path, Webson render,
+// then runs doclets.allspeak for real: localhost credentials path, Webson render,
 // attach, storage, prompts, and MQTT connect (stubbed - captures the URL).
 // Dumps logs / alerts / the MQTT connection attempt / runtime errors.
 const fs = require('fs');
@@ -91,7 +91,7 @@ const fetchMock = (url) => {
   const clean = String(url).split('?')[0].split('#')[0];
   const serve = (file) => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(fs.readFileSync(path.join(ROOT, file), 'utf8')) });
   if (clean.endsWith('doclets.json')) return serve('doclets.json');
-  if (clean.endsWith('doclets.as')) return serve('doclets.as');
+  if (clean.endsWith('doclets.allspeak')) return serve('doclets.allspeak');
   if (clean.endsWith('credentials.php')) return serve('doclets.eclecity.net.txt');
   return Promise.reject(new Error('fetch mock: no route for ' + url));
 };
@@ -171,7 +171,7 @@ EC.scripts = {};
 window.AllSpeak = EC;
 vm.runInContext('if (!AllSpeak_Language.pack && typeof AllSpeak_LanguagePack_en !== `undefined`) AllSpeak_Language.init(AllSpeak_LanguagePack_en);', ctx);
 
-const source = fs.readFileSync(path.join(ROOT, 'doclets.as'), 'utf8');
+const source = fs.readFileSync(path.join(ROOT, 'doclets.allspeak'), 'utf8');
 try { EC.start(source); } catch (e) { logs.push('EXCEPTION: ' + (e.stack || e.message)); }
 
 // Let the event loop run (real timers) for a while, then dump.
